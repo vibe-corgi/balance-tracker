@@ -841,7 +841,7 @@ function CheckinCard({
   showWake,
   showBed
 }) {
-  const [editing, setEditing] = useState(!data);
+  const [editing, setEditing] = useState(false);
   const [level, setLevel] = useState(data?.level ?? 2);
   const [note, setNote] = useState(data?.note ?? "");
   const [wakeTime, setWakeTime] = useState(data?.wakeTime ?? nowHM());
