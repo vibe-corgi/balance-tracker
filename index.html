@@ -75,17 +75,10 @@
       async get(key) {
         const uid = this._uid();
         if (!uid) return null;
-        // localStorage first — instant, no waiting
+        // localStorage first — instant, no Firestore requests
         const local = localStorage.getItem(this._lsKey(uid, key));
-        if (local) {
-          // Sync from Firestore in background (non-blocking)
-          _db.collection("users").doc(uid).collection("data").doc(key).get()
-            .then(snap => {
-              if (snap.exists) localStorage.setItem(this._lsKey(uid, key), JSON.stringify(snap.data().value));
-            }).catch(() => {});
-          return { key, value: JSON.parse(local) };
-        }
-        // No local data — try Firestore (first time / other device)
+        if (local) return { key, value: JSON.parse(local) };
+        // No local data — try Firestore once (first login / other device)
         try {
           const snap = await _db.collection("users").doc(uid).collection("data").doc(key).get();
           if (snap.exists) {
@@ -108,17 +101,7 @@
       async list(prefix) {
         const uid = this._uid();
         if (!uid) return { keys: [] };
-        // localStorage keys first
-        const localKeys = this._lsListKeys(uid, prefix);
-        // Sync from Firestore in background
-        _db.collection("users").doc(uid).collection("data").get()
-          .then(snap => {
-            snap.docs.forEach(doc => {
-              if (!prefix || doc.id.startsWith(prefix))
-                localStorage.setItem(this._lsKey(uid, doc.id), JSON.stringify(doc.data().value));
-            });
-          }).catch(() => {});
-        return { keys: localKeys };
+        return { keys: this._lsListKeys(uid, prefix) };
       }
     };
 
