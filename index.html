@@ -40,7 +40,6 @@
     firebase.initializeApp(firebaseConfig);
     const _auth = firebase.auth();
     const _db   = firebase.firestore();
-    _db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
     const _provider = new firebase.auth.GoogleAuthProvider();
 
     // Google 로그인 — redirect 방식 (팝업은 COOP 정책에 막힘)
@@ -57,21 +56,51 @@
     window._balanceSignOut = () => _auth.signOut();
     window._balanceOnAuth  = (cb) => _auth.onAuthStateChanged(cb);
 
-    // Firestore storage shim (기존 window.storage API 유지)
+    // Firestore storage shim — localStorage fallback when Firestore is offline
     window.storage = {
       _uid() { return _auth.currentUser?.uid; },
+      _lsKey(uid, key) { return `balance_${uid}_${key}`; },
+      _lsListKeys(uid, prefix) {
+        const out = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          const pre = `balance_${uid}_`;
+          if (k && k.startsWith(pre)) {
+            const dataKey = k.slice(pre.length);
+            if (!prefix || dataKey.startsWith(prefix)) out.push(dataKey);
+          }
+        }
+        return out;
+      },
       async get(key) {
         const uid = this._uid();
         if (!uid) return null;
         try {
           const snap = await _db.collection("users").doc(uid).collection("data").doc(key).get();
-          return snap.exists ? { key, value: snap.data().value } : null;
-        } catch(e) { console.error("FB get", e); return null; }
+          const val = snap.exists ? snap.data().value : null;
+          if (val !== null) {
+            localStorage.setItem(this._lsKey(uid, key), JSON.stringify(val));
+            return { key, value: val };
+          }
+          // Firestore had no doc — check localStorage
+          const local = localStorage.getItem(this._lsKey(uid, key));
+          return local ? { key, value: JSON.parse(local) } : null;
+        } catch(e) {
+          // Firestore offline — use localStorage
+          const local = localStorage.getItem(this._lsKey(uid, key));
+          return local ? { key, value: JSON.parse(local) } : null;
+        }
       },
       async set(key, value) {
         const uid = this._uid();
         if (!uid) throw new Error("not logged in");
-        await _db.collection("users").doc(uid).collection("data").doc(key).set({ value });
+        // Always save to localStorage immediately
+        localStorage.setItem(this._lsKey(uid, key), JSON.stringify(value));
+        try {
+          await _db.collection("users").doc(uid).collection("data").doc(key).set({ value });
+        } catch(e) {
+          console.warn("Firestore offline, saved to localStorage only:", key);
+        }
         return { key, value };
       },
       async list(prefix) {
@@ -80,8 +109,16 @@
         try {
           const snap = await _db.collection("users").doc(uid).collection("data").get();
           const keys = snap.docs.map(d => d.id).filter(k => !prefix || k.startsWith(prefix));
+          // Cache all fetched values to localStorage
+          snap.docs.forEach(doc => {
+            if (!prefix || doc.id.startsWith(prefix))
+              localStorage.setItem(this._lsKey(uid, doc.id), JSON.stringify(doc.data().value));
+          });
           return { keys };
-        } catch(e) { return { keys: [] }; }
+        } catch(e) {
+          // Firestore offline — list from localStorage
+          return { keys: this._lsListKeys(uid, prefix) };
+        }
       }
     };
 
