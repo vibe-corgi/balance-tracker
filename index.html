@@ -475,6 +475,18 @@ async function listEntryDates() {
     return [];
   }
 }
+async function loadMonthlySummary(year, month) {
+  const mm = String(month + 1).padStart(2, "0");
+  const res = await window.storage.get(`summary:${year}-${mm}`);
+  return res ? JSON.parse(res.value) : {};
+}
+async function updateMonthlySummaryEntry(date, score) {
+  const [year, mm] = date.split('-');
+  const res = await window.storage.get(`summary:${year}-${mm}`);
+  const summary = res ? JSON.parse(res.value) : {};
+  summary[date] = score ? { total: score.total, level: Math.min(4, Math.round(score.total / 100 * 4)) } : null;
+  await window.storage.set(`summary:${year}-${mm}`, JSON.stringify(summary));
+}
 const DEFAULT_GOALS = {
   exerciseGoalMin: 30,
   meditationGoalMin: 20,
@@ -2084,6 +2096,7 @@ function TodayView({
       setLastAttempt(null);
       const d = new Date();
       setLastSaved(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`);
+      updateMonthlySummaryEntry(updated.date, computeDayScore(updated, prevEntry, goals)).catch(() => {});
     }
   };
   const retrySave = async () => {
@@ -2423,37 +2436,35 @@ function FlowView({
     year: now.getFullYear(),
     month: now.getMonth()
   });
-  const [entries, setEntries] = useState([]);
+  const [summary, setSummary] = useState({});
+  const [loadedEntries, setLoadedEntries] = useState({});
   const [loading, setLoading] = useState(true);
   const [openDays, setOpenDays] = useState(new Set());
-  const toggleDay = (date) => setOpenDays(prev => {
-    const next = new Set(prev);
-    next.has(date) ? next.delete(date) : next.add(date);
-    return next;
-  });
   const isCurrentMonth = cursor.year === now.getFullYear() && cursor.month === now.getMonth();
   const lastDay = isCurrentMonth ? now.getDate() : daysInMonth(cursor.year, cursor.month);
+  const toggleDay = async (date) => {
+    setOpenDays(prev => {
+      const next = new Set(prev);
+      next.has(date) ? next.delete(date) : next.add(date);
+      return next;
+    });
+    if (!loadedEntries[date]) {
+      const prevDate = addDays(date, -1);
+      const [entry, prev] = await Promise.all([loadEntry(date), loadEntry(prevDate)]);
+      setLoadedEntries(p => ({ ...p, [date]: { entry, prev } }));
+    }
+  };
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const dates = [];
-      for (let d = 1; d <= lastDay; d++) {
-        const dd = String(d).padStart(2, "0");
-        const mm = String(cursor.month + 1).padStart(2, "0");
-        dates.push(`${cursor.year}-${mm}-${dd}`);
-      }
-      const prevDayDate = addDays(dates[0], -1);
-      const loaded = await Promise.all([prevDayDate, ...dates].map(loadEntry));
-      if (!cancelled) {
-        setEntries(loaded);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [cursor.year, cursor.month, lastDay]);
+    setSummary({});
+    setLoadedEntries({});
+    setOpenDays(new Set());
+    setLoading(true);
+    loadMonthlySummary(cursor.year, cursor.month).then(s => {
+      if (!cancelled) { setSummary(s); setLoading(false); }
+    });
+    return () => { cancelled = true; };
+  }, [cursor.year, cursor.month]);
   const goPrevMonth = () => setCursor(c => c.month === 0 ? {
     year: c.year - 1,
     month: 11
@@ -2470,19 +2481,23 @@ function FlowView({
       month: c.month + 1
     });
   };
-  const dayEntries = entries.slice(1);
-  const scored = useMemo(() => dayEntries.map((e, i) => ({
-    date: e.date,
-    score: computeDayScore(e, entries[i], goals)
-  })), [entries, goals]);
-  const chartData = useMemo(() => scored.map(d => {
-    const dateObj = new Date(d.date + "T00:00:00");
+  const mm = String(cursor.month + 1).padStart(2, "0");
+  const dayDates = useMemo(() => {
+    const dates = [];
+    for (let d = 1; d <= lastDay; d++) {
+      dates.push(`${cursor.year}-${mm}-${String(d).padStart(2, "0")}`);
+    }
+    return dates;
+  }, [cursor.year, cursor.month, lastDay]);
+  const chartData = useMemo(() => dayDates.map(date => {
+    const s = summary[date];
+    const dateObj = new Date(date + "T00:00:00");
     return {
-      date: String(parseInt(d.date.slice(8, 10), 10)),
-      score: d.score ? d.score.total : null,
+      date: String(parseInt(date.slice(8, 10), 10)),
+      score: s ? s.total : null,
       isMonday: dateObj.getDay() === 1
     };
-  }), [scored]);
+  }), [dayDates, summary]);
   const avgScore = useMemo(() => {
     const vals = chartData.filter(d => d.score !== null).map(d => d.score);
     if (!vals.length) return null;
@@ -2490,35 +2505,23 @@ function FlowView({
   }, [chartData]);
   const mealStats = useMemo(() => {
     const mealTimes = [];
-    dayEntries.forEach(e => e.events.filter(ev => ev.type === "meal").forEach(ev => mealTimes.push(ev.time)));
+    Object.values(loadedEntries).forEach(({ entry }) => {
+      if (entry) entry.events.filter(ev => ev.type === "meal").forEach(ev => mealTimes.push(ev.time));
+    });
     if (!mealTimes.length) return null;
     const sorted = [...mealTimes].sort();
-    return {
-      first: sorted[0],
-      last: sorted[sorted.length - 1],
-      count: mealTimes.length
-    };
-  }, [dayEntries]);
+    return { first: sorted[0], last: sorted[sorted.length - 1], count: mealTimes.length };
+  }, [loadedEntries]);
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
     const lines = [`# ${monthLabel(cursor.year, cursor.month)} — BALANCE 흐름`, ""];
     if (avgScore !== null) lines.push(`**평균 컨디션 점수**: ${avgScore}점`, "");
     lines.push("## 하루하루");
-    scored.forEach(d => {
-      const day = parseInt(d.date.slice(8, 10), 10);
-      if (!d.score) {
-        lines.push(`- ${day}일: 기록 없음`);
-        return;
-      }
-      const parts = [`${d.score.total}점`];
-      if (d.score.fastHours != null) parts.push(`공복 ${d.score.fastHours.toFixed(1)}h`);
-      if (d.score.sleepHours != null) parts.push(`수면 ${d.score.sleepHours.toFixed(1)}h`);
-      if (d.score.hydrationMl) parts.push(`수분 ${(d.score.hydrationMl / 1000).toFixed(2)}L`);
-      if (d.score.exMinutes) parts.push(`운동 ${d.score.exMinutes}분`);
-      if (d.score.medMinutes) parts.push(`명상 ${d.score.medMinutes}분`);
-      if (d.score.restMinutes) parts.push(`휴식 ${(d.score.restMinutes / 60).toFixed(1)}h`);
-      if (d.score.emotions?.length) parts.push(`감정 ${d.score.emotions.map(e => e.name).join(",")}`);
-      lines.push(`- ${day}일: ${parts.join(" · ")}`);
+    dayDates.forEach(date => {
+      const day = parseInt(date.slice(8, 10), 10);
+      const s = summary[date];
+      if (!s) { lines.push(`- ${day}일: 기록 없음`); return; }
+      lines.push(`- ${day}일: ${s.total}점`);
     });
     if (mealStats) lines.push("", `## 식사 리듬`, `- 가장 이른 식사: ${mealStats.first}`, `- 가장 늦은 식사: ${mealStats.last}`, `- 총 ${mealStats.count}회`);
     const ok = await copyTextToClipboard(lines.join("\n"));
@@ -2626,18 +2629,23 @@ function FlowView({
       gap: 4,
       marginBottom: 8
     }
-  }, scored.map(d => {
-    const fastOn = d.score && d.score.fastHours != null;
-    const sleepOn = d.score && d.score.sleepHours != null;
-    const waterOn = d.score && d.score.hydrationMl > 0;
-    const exOn = d.score && d.score.exMinutes > 0;
-    const medOn = d.score && d.score.medMinutes > 0;
-    const restOn = d.score && d.score.restMinutes > 0;
-    const bathOn = d.score && d.score.bathroomAvg != null;
-    const lv = d.score ? Math.min(4, Math.round(d.score.total / 100 * 4)) : null;
-    const isOpen = openDays.has(d.date);
+  }, dayDates.map(date => {
+    const s = summary[date];
+    const lv = s ? s.level : null;
+    const loaded = loadedEntries[date];
+    const score = loaded ? computeDayScore(loaded.entry, loaded.prev, goals) : null;
+    const fastOn = score && score.fastHours != null;
+    const sleepOn = score && score.sleepHours != null;
+    const waterOn = score && score.hydrationMl > 0;
+    const exOn = score && score.exMinutes > 0;
+    const medOn = score && score.medMinutes > 0;
+    const restOn = score && score.restMinutes > 0;
+    const bathOn = score && score.bathroomAvg != null;
+    const emotions = loaded?.entry?.morning ? [] : (loaded?.entry?.events?.flatMap(ev => ev.emotions || []) || []);
+    const isOpen = openDays.has(date);
+    const d = { date, score };
     return /*#__PURE__*/React.createElement("div", {
-      key: d.date,
+      key: date,
       style: {
         display: "flex",
         flexDirection: "column",
@@ -2646,7 +2654,7 @@ function FlowView({
         borderBottom: "1px solid #3A2E5C22"
       }
     }, /*#__PURE__*/React.createElement("div", {
-      onClick: () => toggleDay(d.date),
+      onClick: () => toggleDay(date),
       style: {
         display: "flex",
         alignItems: "center",
@@ -2661,7 +2669,7 @@ function FlowView({
         fontVariantNumeric: "tabular-nums",
         fontWeight: 700
       }
-    }, parseInt(d.date.slice(8, 10), 10), "일"), /*#__PURE__*/React.createElement("div", {
+    }, parseInt(date.slice(8, 10), 10), "일"), /*#__PURE__*/React.createElement("div", {
       style: {
         width: 24,
         height: 12,
@@ -2674,20 +2682,20 @@ function FlowView({
         fontWeight: 800,
         color: INK
       }
-    }, d.score ? `${d.score.total}점` : "-"), d.score && d.score.emotions.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, s ? `${s.total}점` : "-"), loaded && score && score.emotions && score.emotions.length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         display: "flex",
         gap: 2,
         marginLeft: "auto"
       }
-    }, d.score.emotions.slice(0, 5).map(e => /*#__PURE__*/React.createElement(PixelGrid, {
+    }, score.emotions.slice(0, 5).map(e => /*#__PURE__*/React.createElement(PixelGrid, {
       key: e.id,
       rows: EMOTIONS[e.name].rows,
       skin: EMOTIONS[e.name].skin,
       cell: 1.1
     }))), /*#__PURE__*/React.createElement("span", {
       style: { marginLeft: 4, fontSize: 10, color: "#8a80a0" }
-    }, isOpen ? "▲" : "▽")), isOpen && /*#__PURE__*/React.createElement("div", {
+    }, isOpen ? (loaded ? "▲" : "…") : "▽")), isOpen && loaded && /*#__PURE__*/React.createElement("div", {
       style: {
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
@@ -2707,7 +2715,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#D98A2B"
-    }), "공복 ", fastOn ? `${d.score.fastHours.toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "공복 ", fastOn ? `${score.fastHours.toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: sleepOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2718,7 +2726,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#9B6FC7"
-    }), "수면 ", sleepOn ? `${d.score.sleepHours.toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "수면 ", sleepOn ? `${score.sleepHours.toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: waterOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2729,7 +2737,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#5FB5D9"
-    }), "수분 ", waterOn ? `${(d.score.hydrationMl / 1000).toFixed(2)}L` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "수분 ", waterOn ? `${(score.hydrationMl / 1000).toFixed(2)}L` : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: exOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2740,7 +2748,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#38B27E"
-    }), "운동 ", exOn ? `${d.score.exMinutes}분` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "운동 ", exOn ? `${score.exMinutes}분` : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: medOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2751,7 +2759,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#3BAEC9"
-    }), "명상 ", medOn ? `${d.score.medMinutes}분` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "명상 ", medOn ? `${score.medMinutes}분` : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: restOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2762,7 +2770,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#6D7BD9"
-    }), "휴식 ", restOn ? `${(d.score.restMinutes / 60).toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "휴식 ", restOn ? `${(score.restMinutes / 60).toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: bathOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2773,7 +2781,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#FF7A59"
-    }), "화장실 ", bathOn ? d.score.bathroomAvg >= 90 ? "편함" : d.score.bathroomAvg >= 50 ? "보통" : "불편" : "기록없음")));
+    }), "화장실 ", bathOn ? score.bathroomAvg >= 90 ? "편함" : score.bathroomAvg >= 50 ? "보통" : "불편" : "기록없음")));
   })), mealStats && /*#__PURE__*/React.createElement("div", {
     style: {
       background: CARD,
