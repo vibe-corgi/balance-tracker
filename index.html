@@ -56,7 +56,7 @@
     window._balanceSignOut = () => _auth.signOut();
     window._balanceOnAuth  = (cb) => _auth.onAuthStateChanged(cb);
 
-    // Firestore storage shim — localStorage fallback when Firestore is offline
+    // Firestore storage shim — localStorage-first, Firestore syncs in background
     window.storage = {
       _uid() { return _auth.currentUser?.uid; },
       _lsKey(uid, key) { return `balance_${uid}_${key}`; },
@@ -75,50 +75,50 @@
       async get(key) {
         const uid = this._uid();
         if (!uid) return null;
+        // localStorage first — instant, no waiting
+        const local = localStorage.getItem(this._lsKey(uid, key));
+        if (local) {
+          // Sync from Firestore in background (non-blocking)
+          _db.collection("users").doc(uid).collection("data").doc(key).get()
+            .then(snap => {
+              if (snap.exists) localStorage.setItem(this._lsKey(uid, key), JSON.stringify(snap.data().value));
+            }).catch(() => {});
+          return { key, value: JSON.parse(local) };
+        }
+        // No local data — try Firestore (first time / other device)
         try {
           const snap = await _db.collection("users").doc(uid).collection("data").doc(key).get();
-          const val = snap.exists ? snap.data().value : null;
-          if (val !== null) {
-            localStorage.setItem(this._lsKey(uid, key), JSON.stringify(val));
-            return { key, value: val };
+          if (snap.exists) {
+            localStorage.setItem(this._lsKey(uid, key), JSON.stringify(snap.data().value));
+            return { key, value: snap.data().value };
           }
-          // Firestore had no doc — check localStorage
-          const local = localStorage.getItem(this._lsKey(uid, key));
-          return local ? { key, value: JSON.parse(local) } : null;
-        } catch(e) {
-          // Firestore offline — use localStorage
-          const local = localStorage.getItem(this._lsKey(uid, key));
-          return local ? { key, value: JSON.parse(local) } : null;
-        }
+          return null;
+        } catch(e) { return null; }
       },
       async set(key, value) {
         const uid = this._uid();
         if (!uid) throw new Error("not logged in");
-        // Always save to localStorage immediately
+        // Save to localStorage immediately (so refresh shows correct data)
         localStorage.setItem(this._lsKey(uid, key), JSON.stringify(value));
-        try {
-          await _db.collection("users").doc(uid).collection("data").doc(key).set({ value });
-        } catch(e) {
-          console.warn("Firestore offline, saved to localStorage only:", key);
-        }
+        // Sync to Firestore in background
+        _db.collection("users").doc(uid).collection("data").doc(key).set({ value })
+          .catch(e => console.warn("Firestore sync failed (saved locally):", key));
         return { key, value };
       },
       async list(prefix) {
         const uid = this._uid();
         if (!uid) return { keys: [] };
-        try {
-          const snap = await _db.collection("users").doc(uid).collection("data").get();
-          const keys = snap.docs.map(d => d.id).filter(k => !prefix || k.startsWith(prefix));
-          // Cache all fetched values to localStorage
-          snap.docs.forEach(doc => {
-            if (!prefix || doc.id.startsWith(prefix))
-              localStorage.setItem(this._lsKey(uid, doc.id), JSON.stringify(doc.data().value));
-          });
-          return { keys };
-        } catch(e) {
-          // Firestore offline — list from localStorage
-          return { keys: this._lsListKeys(uid, prefix) };
-        }
+        // localStorage keys first
+        const localKeys = this._lsListKeys(uid, prefix);
+        // Sync from Firestore in background
+        _db.collection("users").doc(uid).collection("data").get()
+          .then(snap => {
+            snap.docs.forEach(doc => {
+              if (!prefix || doc.id.startsWith(prefix))
+                localStorage.setItem(this._lsKey(uid, doc.id), JSON.stringify(doc.data().value));
+            });
+          }).catch(() => {});
+        return { keys: localKeys };
       }
     };
 
@@ -2442,6 +2442,12 @@ function FlowView({
   });
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openDays, setOpenDays] = useState(new Set());
+  const toggleDay = (date) => setOpenDays(prev => {
+    const next = new Set(prev);
+    next.has(date) ? next.delete(date) : next.add(date);
+    return next;
+  });
   const isCurrentMonth = cursor.year === now.getFullYear() && cursor.month === now.getMonth();
   const lastDay = isCurrentMonth ? now.getDate() : daysInMonth(cursor.year, cursor.month);
   useEffect(() => {
@@ -2646,6 +2652,7 @@ function FlowView({
     const restOn = d.score && d.score.restMinutes > 0;
     const bathOn = d.score && d.score.bathroomAvg != null;
     const lv = d.score ? Math.min(4, Math.round(d.score.total / 100 * 4)) : null;
+    const isOpen = openDays.has(d.date);
     return /*#__PURE__*/React.createElement("div", {
       key: d.date,
       style: {
@@ -2656,10 +2663,12 @@ function FlowView({
         borderBottom: "1px solid #3A2E5C22"
       }
     }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => toggleDay(d.date),
       style: {
         display: "flex",
         alignItems: "center",
-        gap: 10
+        gap: 10,
+        cursor: "pointer"
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
@@ -2693,7 +2702,9 @@ function FlowView({
       rows: EMOTIONS[e.name].rows,
       skin: EMOTIONS[e.name].skin,
       cell: 1.1
-    })))), /*#__PURE__*/React.createElement("div", {
+    }))), /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 4, fontSize: 10, color: "#8a80a0" }
+    }, isOpen ? "▲" : "▽")), isOpen && /*#__PURE__*/React.createElement("div", {
       style: {
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
