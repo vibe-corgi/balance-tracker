@@ -40,6 +40,7 @@
     firebase.initializeApp(firebaseConfig);
     const _auth = firebase.auth();
     const _db   = firebase.firestore();
+    _db.settings({ experimentalForceLongPolling: true, merge: true });
     const _provider = new firebase.auth.GoogleAuthProvider();
 
     // Google 로그인 — redirect 방식 (팝업은 COOP 정책에 막힘)
