@@ -215,11 +215,11 @@ const Moon = ({
   width: size ? Math.round(size * 1.75) : 28, height: size ? Math.round(size * 1.75) : 28, viewBox: '0 0 24 24',
   fill: 'none', style: { display: 'inline-block', verticalAlign: 'middle' }
 },
-  React.createElement('path', { d: 'M7 10h10l-1.5 9H8.5L7 10z', fill: '#86EFAC', stroke: '#1a1a1a', strokeWidth: '1', strokeLinejoin: 'round' }),
+  React.createElement('path', { d: 'M7 10h10l-1.5 9H8.5L7 10z', fill: '#A8C686', stroke: '#1a1a1a', strokeWidth: '1', strokeLinejoin: 'round' }),
   React.createElement('path', { d: 'M17 13h1.5a1.5 1.5 0 0 1 0 3H17', stroke: '#1a1a1a', strokeWidth: '1', strokeLinecap: 'round' }),
   React.createElement('line', { x1: '6', y1: '20', x2: '18', y2: '20', stroke: '#1a1a1a', strokeWidth: '1', strokeLinecap: 'round' }),
-  React.createElement('path', { d: 'M10 8 Q9.5 6 10.5 4.5 Q11.5 3 11 1.5', stroke: '#16A34A', strokeWidth: '1.3', strokeLinecap: 'round' }),
-  React.createElement('path', { d: 'M14 8 Q13.5 6 14.5 4.5 Q15.5 3 15 1.5', stroke: '#16A34A', strokeWidth: '1.3', strokeLinecap: 'round' })
+  React.createElement('path', { d: 'M10 8 Q9.5 6 10.5 4.5 Q11.5 3 11 1.5', stroke: '#6B8E23', strokeWidth: '1.3', strokeLinecap: 'round' }),
+  React.createElement('path', { d: 'M14 8 Q13.5 6 14.5 4.5 Q15.5 3 15 1.5', stroke: '#6B8E23', strokeWidth: '1.3', strokeLinecap: 'round' })
 );
 const Clock = ({
   size,
@@ -236,10 +236,9 @@ const CupSoda = ({
   width: size ? Math.round(size * 1.75) : 28, height: size ? Math.round(size * 1.75) : 28, viewBox: '0 0 24 24',
   fill: 'none', style: { display: 'inline-block', verticalAlign: 'middle' }
 },
-  React.createElement('path', { d: 'M7 10h10l-1.5 9H8.5L7 10z', fill: '#38BDF8', stroke: '#1a1a1a', strokeWidth: '1.5', strokeLinejoin: 'round' }),
-  React.createElement('rect', { x: '15', y: '4', width: '2', height: '8', rx: '1', fill: '#0EA5E9', stroke: '#1a1a1a', strokeWidth: '1' }),
-  React.createElement('line', { x1: '6', y1: '20', x2: '18', y2: '20', stroke: '#1a1a1a', strokeWidth: '1.5', strokeLinecap: 'round' }),
-  React.createElement('path', { d: 'M8.5 14 Q12 13 15 14', stroke: '#BAE6FD', strokeWidth: '1', strokeLinecap: 'round' })
+  React.createElement('path', { d: 'M7 6h10l-1.5 15H8.5L7 6z', fill: '#38BDF8', stroke: '#1a1a1a', strokeWidth: '1', strokeLinejoin: 'round' }),
+  React.createElement('line', { x1: '13', y1: '16', x2: '16.5', y2: '2.5', stroke: '#0369A1', strokeWidth: '1.8', strokeLinecap: 'round' }),
+  React.createElement('path', { d: 'M8 10 Q12 9 16 10', stroke: '#BAE6FD', strokeWidth: '1', strokeLinecap: 'round' })
 );
 const Sparkles = ({
   size,
@@ -364,7 +363,7 @@ const EMOTIONS = {
   },
   불안: {
     skin: "#D9E67A",
-    rows: [".....111.....", "...1111111...", "..1111111113.", ".11111111111.", ".11221112211.", "1112211122111", "1111111111111", "1111111111111", ".11111111111.", ".11111211111.", "..111111111..", "...1111111...", ".....111....."]
+    rows: [".....111.....", "...1111111...", "..111111111..", ".11111111111.", ".11221112211.", "1112211122111", "1111111111111", "1111111111111", ".11111111111.", ".11111211111.", "..111111111..", "...1111111...", ".....111....."]
   },
   슬픔: {
     skin: "#6FA6D6",
@@ -376,11 +375,11 @@ const EMOTIONS = {
   },
   감사: {
     skin: "#FFD23D",
-    rows: [".....111.....", "...1111111...", "..111111111..", ".11121112111.", ".11212121211.", "1111111111111", "1111111111111", "1111111111111", ".11121112111.", ".31112221113.", "..111111111..", "...1111111...", ".....111....."]
+    rows: [".....111.....", "...1111111...", "..111111111..", ".11121112111.", ".11212121211.", "1111111111111", "1111111111111", "1111111111111", ".11121112111.", ".11112221111.", "..111111111..", "...1111111...", ".....111....."]
   },
   기쁨: {
     skin: "#FFCCE0",
-    rows: [".....111.....", "...1111111...", "..111111111..", ".13131113131.", ".13331113331.", ".11311111311.", "1111111111111", "1111111111111", ".11121112111.", ".31112221113.", "..111111111..", "...1111111...", ".....111....."]
+    rows: [".....111.....", "...1111111...", "..111111111..", ".13131113131.", ".13331113331.", ".11311111311.", "1111111111111", "1111111111111", ".11121112111.", ".11112221111.", "..111111111..", "...1111111...", ".....111....."]
   }
 };
 const EMOTION_NAMES = Object.keys(EMOTIONS);
