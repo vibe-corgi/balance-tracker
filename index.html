@@ -215,11 +215,11 @@ const Moon = ({
   width: size ? Math.round(size * 1.75) : 28, height: size ? Math.round(size * 1.75) : 28, viewBox: '0 0 24 24',
   fill: 'none', style: { display: 'inline-block', verticalAlign: 'middle' }
 },
-  React.createElement('path', { d: 'M7 10h10l-1.5 9H8.5L7 10z', fill: '#A8C686', stroke: '#1a1a1a', strokeWidth: '1', strokeLinejoin: 'round' }),
+  React.createElement('path', { d: 'M7 10h10l-1.5 9H8.5L7 10z', fill: '#A5D66A', stroke: '#1a1a1a', strokeWidth: '1', strokeLinejoin: 'round' }),
   React.createElement('path', { d: 'M17 13h1.5a1.5 1.5 0 0 1 0 3H17', stroke: '#1a1a1a', strokeWidth: '1', strokeLinecap: 'round' }),
   React.createElement('line', { x1: '6', y1: '20', x2: '18', y2: '20', stroke: '#1a1a1a', strokeWidth: '1', strokeLinecap: 'round' }),
-  React.createElement('path', { d: 'M10 8 Q9.5 6 10.5 4.5 Q11.5 3 11 1.5', stroke: '#6B8E23', strokeWidth: '1.3', strokeLinecap: 'round' }),
-  React.createElement('path', { d: 'M14 8 Q13.5 6 14.5 4.5 Q15.5 3 15 1.5', stroke: '#6B8E23', strokeWidth: '1.3', strokeLinecap: 'round' })
+  React.createElement('path', { d: 'M10 8 Q9.5 6 10.5 4.5 Q11.5 3 11 1.5', stroke: '#689F38', strokeWidth: '1.3', strokeLinecap: 'round' }),
+  React.createElement('path', { d: 'M14 8 Q13.5 6 14.5 4.5 Q15.5 3 15 1.5', stroke: '#689F38', strokeWidth: '1.3', strokeLinecap: 'round' })
 );
 const Clock = ({
   size,
@@ -2213,8 +2213,9 @@ function TodayView({
     id: "bed",
     type: "bed",
     time: entry.evening.bedTime,
+    nextDay: !!entry.evening.bedNextDay,
     label: "취침"
-  }] : [])].sort((a, b) => a.time.localeCompare(b.time));
+  }] : [])].sort((a, b) => (toMin(a.time) + (a.nextDay ? 1440 : 0)) - (toMin(b.time) + (b.nextDay ? 1440 : 0)));
   const captureRef = React.useRef(null);
   const [copied, setCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
