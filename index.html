@@ -2204,6 +2204,7 @@ function TodayView({
   const prevMealsSorted = prevEntry ? prevEntry.events.filter(e => e.type === "meal").map(e => e.time).sort() : [];
   const prevLastMealTime = prevMealsSorted.length ? prevMealsSorted[prevMealsSorted.length - 1] : null;
   const isFirstMealToday = entry.events.filter(e => e.type === "meal").length === 0;
+  const sortKey = e => e.type === "wake" ? -1 : e.type === "bed" ? 1e9 : toMin(e.time);
   const timelineEvents = [...(entry.morning?.wakeTime ? [{
     id: "wake",
     type: "wake",
@@ -2213,9 +2214,8 @@ function TodayView({
     id: "bed",
     type: "bed",
     time: entry.evening.bedTime,
-    nextDay: !!entry.evening.bedNextDay,
     label: "취침"
-  }] : [])].sort((a, b) => (toMin(a.time) + (a.nextDay ? 1440 : 0)) - (toMin(b.time) + (b.nextDay ? 1440 : 0)));
+  }] : [])].sort((a, b) => sortKey(a) - sortKey(b));
   const captureRef = React.useRef(null);
   const [copied, setCopied] = useState(false);
   const [capturing, setCapturing] = useState(false);
