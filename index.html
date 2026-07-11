@@ -1590,8 +1590,16 @@ function DayThread({
       height: 2,
       background: "#3A2E5C33"
     }
-  }), events.map(ev => {
-    const left = `${toMin(ev.time) / 1440 * 100}%`;
+  }), (() => {
+    const wakeEv = events.find(e => e.type === "wake");
+    const threshold = wakeEv ? toMin(wakeEv.time) : 720;
+    const adjMin = ev => {
+      const m = toMin(ev.time);
+      return ev.type === "bed" && m < threshold ? m + 1440 : m;
+    };
+    const axisMax = Math.max(1440, ...events.map(adjMin));
+    return events.map(ev => {
+    const left = `${adjMin(ev) / axisMax * 100}%`;
     if (ev.type === "wake" || ev.type === "bed") {
       return /*#__PURE__*/React.createElement("div", {
         key: ev.id,
@@ -1642,7 +1650,8 @@ function DayThread({
         boxShadow: "0 2px 6px -1px #00000033"
       }
     });
-  }));
+  });
+  })());
 }
 
 /* ---------- Event row (view / edit / delete) ---------- */
