@@ -526,7 +526,7 @@ async function listEntryDates() {
     return [];
   }
 }
-const SCORING_VERSION = 3;
+const SCORING_VERSION = 4;
 async function loadMonthlySummary(year, month, goals) {
   const mm = String(month + 1).padStart(2, "0");
   const sKey = `summary:${year}-${mm}`;
@@ -674,15 +674,14 @@ function computeDayScore(entry, prevEntry, goals) {
     const sMin = goals.sleepGoalMinH || 6;
     const sMax = goals.sleepGoalMaxH || 8;
     let sv = 100;
-    if (sleepHours < sMin) sv = Math.max(0, 100 - Math.ceil((sMin - sleepHours) / 0.5) * 20);
-    else if (sleepHours > sMax) sv = Math.max(0, 100 - Math.ceil((sleepHours - sMax) / 0.5) * 20);
+    if (sleepHours < sMin) sv = Math.max(0, 100 - Math.ceil((sMin - sleepHours) / 0.5) * 10);
+    else if (sleepHours > sMax) sv = Math.max(0, 100 - Math.ceil((sleepHours - sMax) / 0.5) * 10);
     parts.push({ key: "sleep", v: sv, w: 10 });
   }
   const emotions = entry.events.filter(e => e.type === "emotion");
 
   if (!parts.length) return null;
-  const totalW = parts.reduce((a, p) => a + p.w, 0);
-  const total = Math.round(parts.reduce((a, p) => a + p.v * p.w, 0) / totalW);
+  const total = Math.round(parts.reduce((a, p) => a + p.v * p.w, 0) / 100);
   return {
     total,
     meals,
