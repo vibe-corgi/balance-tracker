@@ -782,7 +782,7 @@ function ScoreInfo({
   const exPt = score.exMinutes > 0 ? (score.exMinutes >= exGoal ? 100 : Math.round(Math.min(100, score.exMinutes / exGoal * 100))) : null;
   const medPt = score.medMinutes > 0 ? (score.medMinutes >= medGoal ? 100 : Math.round(Math.min(100, score.medMinutes / medGoal * 100))) : null;
   const bathPt = score.bathroomAvg != null ? Math.round(score.bathroomAvg) : null;
-  const sleepPt = score.sleepHours != null ? (() => { const sMin = goals.sleepGoalMinH||6, sMax = goals.sleepGoalMaxH||8; if (score.sleepHours < sMin) return Math.max(0, 100 - Math.ceil((sMin - score.sleepHours)/0.5)*20); if (score.sleepHours > sMax) return Math.max(0, 100 - Math.ceil((score.sleepHours - sMax)/0.5)*20); return 100; })() : null;
+  const sleepPt = score.sleepHours != null ? (() => { const sMin = goals.sleepGoalMinH||6, sMax = goals.sleepGoalMaxH||8; if (score.sleepHours < sMin) return Math.max(0, 100 - Math.ceil((sMin - score.sleepHours)/0.5)*10); if (score.sleepHours > sMax) return Math.max(0, 100 - Math.ceil((score.sleepHours - sMax)/0.5)*10); return 100; })() : null;
   const fmtPt = pt => pt != null ? `${pt}점` : "-";
   const rows = [{
     label: "아침",
