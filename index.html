@@ -2974,7 +2974,15 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#FF7A59"
-    }), "화장실 ", bathOn ? score.bathroomAvg >= 90 ? "아주 편함" : score.bathroomAvg >= 70 ? "편함" : score.bathroomAvg >= 50 ? "보통" : score.bathroomAvg >= 30 ? "불편" : "아주 불편" : "기록없음")));
+    }), "화장실 ", bathOn ? score.bathroomAvg >= 90 ? "아주 편함" : score.bathroomAvg >= 70 ? "편함" : score.bathroomAvg >= 50 ? "보통" : score.bathroomAvg >= 30 ? "불편" : "아주 불편" : "기록없음"), loaded.entry?.morning?.period && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: "#E74C8B",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        fontWeight: 700
+      }
+    }, "🩸 생리중")));
   })), mealStats && /*#__PURE__*/React.createElement("div", {
     style: {
       background: CARD,
