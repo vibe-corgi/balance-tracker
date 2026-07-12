@@ -2060,7 +2060,6 @@ async function copyTextToClipboard(text) {
     }
     throw new Error("no clipboard api");
   } catch (e) {
-    // Fallback for sandboxed iframes / older webviews where the Clipboard API is blocked.
     try {
       const ta = document.createElement("textarea");
       ta.value = text;
@@ -2078,6 +2077,73 @@ async function copyTextToClipboard(text) {
     return false;
   }
 }
+function NotionCopyModal({ text, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const textRef = React.useRef(null);
+  const handleCopy = async () => {
+    const ok = await copyTextToClipboard(text);
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  };
+  const handleSelectAll = () => {
+    if (textRef.current) {
+      const range = document.createRange();
+      range.selectNodeContents(textRef.current);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: e => { if (e.target === e.currentTarget) onClose(); },
+    style: {
+      position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+      background: "rgba(0,0,0,0.45)", zIndex: 9999,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: "#fff", borderRadius: 12, width: "100%", maxWidth: 480,
+      maxHeight: "80vh", display: "flex", flexDirection: "column",
+      boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { padding: "20px 24px 12px", borderBottom: "1px solid #eee" }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 16, fontWeight: 800, color: INK, marginBottom: 4 }
+  }, "BALANCE 전체 복사"), /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 12, color: "#8a80a0" }
+  }, "Ctrl+A → Ctrl+C 후 Notion에 붙여넣기")),
+  /*#__PURE__*/React.createElement("div", {
+    ref: textRef, onClick: handleSelectAll,
+    style: {
+      flex: 1, overflow: "auto", padding: "16px 24px",
+      fontSize: 13, lineHeight: 1.7, color: "#333",
+      whiteSpace: "pre-wrap", wordBreak: "break-word", cursor: "text",
+      fontFamily: "'Galmuri11', monospace"
+    }
+  }, text),
+  /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "12px 24px 20px", display: "flex", gap: 12,
+      borderTop: "1px solid #eee"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      flex: 1, padding: "12px 0", border: `2px solid ${INK}`,
+      borderRadius: 8, background: "#fff", color: INK,
+      fontSize: 14, fontWeight: 700, cursor: "pointer"
+    }
+  }, "닫기"), /*#__PURE__*/React.createElement("button", {
+    onClick: handleCopy,
+    style: {
+      flex: 2, padding: "12px 0", border: "none",
+      borderRadius: 8, background: "#9B6FC7", color: "#fff",
+      fontSize: 14, fontWeight: 700, cursor: "pointer"
+    }
+  }, copied ? "복사 ✓" : "복사"))));
+}
 
 // Canvas-based screenshot (html2canvas) hits "tainted canvas" security errors here because
 // our external font imports (Google Fonts / Galmuri CDN) aren't CORS-clean inside the sandboxed
@@ -2085,23 +2151,26 @@ async function copyTextToClipboard(text) {
 // current styles inlined — same approach that worked for the 윤소정 boundary-scheduler project.
 function captureElementAsHtml(el, filename, title) {
   const clone = el.cloneNode(true);
-  // Strip interactive affordances that make no sense in a static snapshot.
   clone.querySelectorAll("button").forEach(b => {
     b.style.pointerEvents = "none";
   });
   clone.querySelectorAll("input, textarea").forEach(i => {
     i.setAttribute("readonly", "true");
   });
+  const rect = el.getBoundingClientRect();
+  clone.style.width = rect.width + "px";
+  clone.style.maxWidth = rect.width + "px";
   const styleTags = [...document.querySelectorAll("style")].map(s => s.outerHTML).join("\n");
   const linkTags = [...document.querySelectorAll('link[rel="stylesheet"]')].map(l => l.outerHTML).join("\n");
   const html = `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=${Math.round(rect.width + 48)}" />
 <title>${title}</title>
 ${linkTags}
 ${styleTags}
-<style>body{margin:0;padding:24px;background:#F5EFFF;}</style>
+<style>body{margin:0;padding:24px;background:#F5EFFF;display:flex;justify-content:center;}body>*{flex-shrink:0;}</style>
 </head>
 <body>
 ${clone.outerHTML}
@@ -2254,18 +2323,32 @@ function TodayView({
     label: "취침"
   }] : [])].sort((a, b) => sortKey(a) - sortKey(b));
   const captureRef = React.useRef(null);
-  const [copied, setCopied] = useState(false);
+  const [notionOpen, setNotionOpen] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const buildMarkdown = () => {
     const lines = [`# ${fmtDateKR(date)} — BALANCE`, ""];
-    if (score) lines.push(`**컨디션 점수**: ${score.total}점`, "");
+    if (score) {
+      lines.push(`**컨디션 점수**: ${score.total}점`, "");
+      lines.push("### 점수 상세");
+      if (entry.morning) lines.push(`- 아침 (15%): ${entry.morning.level}/5`);
+      if (entry.evening) lines.push(`- 저녁 (10%): ${entry.evening.level}/5`);
+      if (score.fastHours != null) lines.push(`- 공복 (10%): ${fmtHM(score.fastHours * 60)}`);
+      if (score.meals.length) lines.push(`- 음식 (10%): ${score.meals.length}회`);
+      if (score.hydrationMl > 0) lines.push(`- 수분 (10%): ${(score.hydrationMl / 1000).toFixed(2)}L`);
+      if (score.exMinutes > 0) lines.push(`- 운동 (10%): ${fmtHM(score.exMinutes)}`);
+      if (score.medMinutes > 0) lines.push(`- 명상 (10%): ${fmtHM(score.medMinutes)}`);
+      if (score.restMinutes > 0) lines.push(`- 휴식: ${fmtHM(score.restMinutes)}`);
+      if (score.bathroomAvg != null) lines.push(`- 화장실 (15%): ${score.bathroomCount}회`);
+      if (score.sleepHours != null) lines.push(`- 수면 (10%): ${fmtHM(score.sleepHours * 60)}`);
+      lines.push("");
+    }
     lines.push("## 아침", entry.morning ? `- 컨디션: ${entry.morning.level}/5` : "- 기록 없음");
     if (entry.morning?.wakeTime) lines.push(`- 기상: ${entry.morning.wakeTime}`);
     if (entry.morning?.note) lines.push(`- 메모: ${entry.morning.note}`);
     lines.push("", "## 저녁", entry.evening ? `- 컨디션: ${entry.evening.level}/5` : "- 기록 없음");
     if (entry.evening?.bedTime) lines.push(`- 취침: ${entry.evening.bedTime}${entry.evening.bedNextDay ? " (다음날 새벽)" : ""}`);
     if (entry.evening?.note) lines.push(`- 메모: ${entry.evening.note}`);
-    lines.push("", "## 오늘의 실");
+    lines.push("", "## 오늘의 기록");
     entry.events.forEach(ev => {
       const def = EVENT_TYPES[ev.type];
       let desc = def.label;
@@ -2273,11 +2356,6 @@ function TodayView({
       lines.push(`- ${ev.time} ${desc}`);
     });
     return lines.join("\n");
-  };
-  const handleCopy = async () => {
-    const ok = await copyTextToClipboard(buildMarkdown());
-    setCopied(ok);
-    setTimeout(() => setCopied(false), 2000);
   };
   const handleCapture = () => {
     setCapturing(true);
@@ -2315,17 +2393,21 @@ function TodayView({
       gap: 6
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: handleCopy,
-    style: compactBtn(copied)
+    onClick: () => setNotionOpen(true),
+    style: compactBtn(false)
   }, /*#__PURE__*/React.createElement(Copy, {
     size: 11
-  }), " ", copied ? "복사됨" : "노션복사"), /*#__PURE__*/React.createElement("button", {
+  }), " 노션복사"), /*#__PURE__*/React.createElement("button", {
     onClick: handleCapture,
     disabled: capturing,
     style: compactBtn(false)
   }, /*#__PURE__*/React.createElement(Camera, {
     size: 11
-  }), " ", capturing ? "캡처중" : "전체캡처"))), saveError && /*#__PURE__*/React.createElement("div", {
+  }), " ", capturing ? "캡처중" : "전체캡처"))),
+  notionOpen && /*#__PURE__*/React.createElement(NotionCopyModal, {
+    text: buildMarkdown(),
+    onClose: () => setNotionOpen(false)
+  }), saveError && /*#__PURE__*/React.createElement("div", {
     style: {
       background: "#FFE3E0",
       border: `2px solid ${INK}`,
@@ -2587,8 +2669,8 @@ function FlowView({
     const sorted = [...mealTimes].sort();
     return { first: sorted[0], last: sorted[sorted.length - 1], count: mealTimes.length };
   }, [loadedEntries]);
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async () => {
+  const [notionOpen, setNotionOpen] = useState(false);
+  const buildFlowMarkdown = () => {
     const lines = [`# ${monthLabel(cursor.year, cursor.month)} — BALANCE 흐름`, ""];
     if (avgScore !== null) lines.push(`**평균 컨디션 점수**: ${avgScore}점`, "");
     lines.push("## 하루하루");
@@ -2599,9 +2681,7 @@ function FlowView({
       lines.push(`- ${day}일: ${s.total}점`);
     });
     if (mealStats) lines.push("", `## 식사 리듬`, `- 가장 이른 식사: ${mealStats.first}`, `- 가장 늦은 식사: ${mealStats.last}`, `- 총 ${mealStats.count}회`);
-    const ok = await copyTextToClipboard(lines.join("\n"));
-    setCopied(ok);
-    setTimeout(() => setCopied(false), 2000);
+    return lines.join("\n");
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2610,11 +2690,15 @@ function FlowView({
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: handleCopy,
-    style: compactBtn(copied)
+    onClick: () => setNotionOpen(true),
+    style: compactBtn(false)
   }, /*#__PURE__*/React.createElement(Copy, {
     size: 11
-  }), " ", copied ? "복사됨" : "노션복사")), /*#__PURE__*/React.createElement("div", {
+  }), " 노션복사")),
+  notionOpen && /*#__PURE__*/React.createElement(NotionCopyModal, {
+    text: buildFlowMarkdown(),
+    onClose: () => setNotionOpen(false)
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -2919,9 +3003,9 @@ function ArchiveView() {
     setOpenEntry(await loadEntry(d));
   };
   const grouped = groupByMonth(dates);
-  const [copied, setCopied] = useState(false);
+  const [notionOpen, setNotionOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const handleCopy = async () => {
+  const buildArchiveMarkdown = () => {
     const lines = ["# 기록 보관함 — BALANCE", ""];
     grouped.forEach(([ym, dsInMonth]) => {
       const [y, m] = ym.split("-");
@@ -2929,9 +3013,7 @@ function ArchiveView() {
       dsInMonth.forEach(d => lines.push(`- ${fmtDateKR(d)}`));
       lines.push("");
     });
-    const ok = await copyTextToClipboard(lines.join("\n"));
-    setCopied(ok);
-    setTimeout(() => setCopied(false), 2000);
+    return lines.join("\n");
   };
   const handleExcelExport = async () => {
     setExporting(true);
@@ -3056,11 +3138,15 @@ function ArchiveView() {
   }, /*#__PURE__*/React.createElement(FileSpreadsheet, {
     size: 11
   }), " ", exporting ? "내보내는 중" : "엑셀로 내보내기"), /*#__PURE__*/React.createElement("button", {
-    onClick: handleCopy,
-    style: compactBtn(copied)
+    onClick: () => setNotionOpen(true),
+    style: compactBtn(false)
   }, /*#__PURE__*/React.createElement(Copy, {
     size: 11
-  }), " ", copied ? "복사됨" : "노션복사")), /*#__PURE__*/React.createElement("div", {
+  }), " 노션복사")),
+  notionOpen && /*#__PURE__*/React.createElement(NotionCopyModal, {
+    text: buildArchiveMarkdown(),
+    onClose: () => setNotionOpen(false)
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
