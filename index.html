@@ -434,10 +434,23 @@ const EVENT_TYPES = {
   }
 };
 const BATHROOM_SCORE = {
-  "편함": 100,
+  "아주 편함": 100,
+  "편함": 80,
   "보통": 60,
-  "불편": 20
+  "불편": 40,
+  "아주 불편": 20
 };
+function fmtHM(totalMin) {
+  if (totalMin == null || isNaN(totalMin)) return "0:00";
+  const h = Math.floor(Math.abs(totalMin) / 60);
+  const m = Math.round(Math.abs(totalMin) % 60);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+function parseHM(str) {
+  if (!str) return 0;
+  const [h, m] = str.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
 function todayStr(d = new Date()) {
   const y = d.getFullYear(),
     m = String(d.getMonth() + 1).padStart(2, "0"),
@@ -536,7 +549,9 @@ const DEFAULT_GOALS = {
   meditationGoalMin: 20,
   restGoalHours: 1.5,
   fastingGoalHours: 12,
-  hydrationGoalL: 1.5
+  hydrationGoalL: 1.5,
+  sleepGoalMinH: 6,
+  sleepGoalMaxH: 8
 };
 async function loadGoals() {
   try {
@@ -569,12 +584,12 @@ function computeDayScore(entry, prevEntry, goals) {
   const parts = [];
   if (entry.morning) parts.push({
     key: "morning",
-    v: entry.morning.level / 4 * 100,
+    v: entry.morning.level / 5 * 100,
     w: 15
   });
   if (entry.evening) parts.push({
     key: "evening",
-    v: entry.evening.level / 4 * 100,
+    v: entry.evening.level / 5 * 100,
     w: 15
   });
   const meals = entry.events.filter(e => e.type === "meal").map(e => e.time).sort();
@@ -599,9 +614,11 @@ function computeDayScore(entry, prevEntry, goals) {
   const mealFeels = entry.events.filter(e => e.type === "meal" && e.feel);
   if (mealFeels.length) {
     const feelMap = {
-      "잘 맞음": 100,
+      "아주 잘 맞음": 100,
+      "잘 맞음": 80,
       "보통": 60,
-      "안 맞음": 20
+      "안 맞음": 40,
+      "아주 안 맞음": 20
     };
     foodSub.push(mealFeels.reduce((a, e) => a + (feelMap[e.feel] ?? 60), 0) / mealFeels.length);
   }
@@ -662,10 +679,14 @@ function computeDayScore(entry, prevEntry, goals) {
       sleepMin = bedMin > wakeMin ? 1440 - bedMin + wakeMin : wakeMin - bedMin;
     }
     sleepHours = sleepMin / 60;
-    const v = Math.max(0, 100 - Math.abs(sleepHours - 7.5) * 20);
+    const sMin = goals.sleepGoalMinH || 6;
+    const sMax = goals.sleepGoalMaxH || 8;
+    let sv = 100;
+    if (sleepHours < sMin) sv = Math.max(0, 100 - Math.ceil((sMin - sleepHours) / 0.5) * 20);
+    else if (sleepHours > sMax) sv = Math.max(0, 100 - Math.ceil((sleepHours - sMax) / 0.5) * 20);
     parts.push({
       key: "sleep",
-      v,
+      v: sv,
       w: 5
     });
   }
@@ -714,7 +735,7 @@ function ConditionGauge({
       borderRadius: 3,
       boxShadow: "2px 2px 0 rgba(0,0,0,0.15)"
     }
-  }, [0, 1, 2, 3, 4].map(lv => /*#__PURE__*/React.createElement("button", {
+  }, [1, 2, 3, 4, 5].map(lv => /*#__PURE__*/React.createElement("button", {
     key: lv,
     onClick: () => onChange(lv),
     style: {
@@ -723,7 +744,7 @@ function ConditionGauge({
       border: `2px solid ${INK}`,
       borderRadius: 1,
       cursor: "pointer",
-      background: value != null && value >= lv ? GAUGE_COLOR[lv] : "#E8E4EF",
+      background: value != null && value >= lv ? GAUGE_COLOR[lv - 1] : "#E8E4EF",
       transition: "background .1s"
     }
   }))), /*#__PURE__*/React.createElement("div", {
@@ -759,18 +780,19 @@ function ScoreInfo({
   entry
 }) {
   const [open, setOpen] = useState(false);
+  const bathLabel = v => v >= 90 ? "아주 편함" : v >= 70 ? "편함" : v >= 50 ? "보통" : v >= 30 ? "불편" : "아주 불편";
   const rows = [{
     label: "아침",
     weight: 15,
-    val: entry.morning ? `${entry.morning.level}/4` : "기록없음"
+    val: entry.morning ? `${entry.morning.level}/5` : "기록없음"
   }, {
     label: "저녁",
     weight: 15,
-    val: entry.evening ? `${entry.evening.level}/4` : "기록없음"
+    val: entry.evening ? `${entry.evening.level}/5` : "기록없음"
   }, {
     label: "음식(공복·규칙·반응)",
     weight: 20,
-    val: score.fastHours != null ? `공복 ${score.fastHours.toFixed(1)}h` : `${score.meals.length}회`
+    val: score.fastHours != null ? `공복 ${fmtHM(score.fastHours * 60)}` : `${score.meals.length}회`
   }, {
     label: "수분",
     weight: 10,
@@ -778,23 +800,23 @@ function ScoreInfo({
   }, {
     label: "운동",
     weight: 10,
-    val: score.exMinutes ? `${score.exMinutes}/${goals.exerciseGoalMin}분` : "기록없음"
+    val: score.exMinutes ? `${fmtHM(score.exMinutes)}/${fmtHM(goals.exerciseGoalMin)}` : "기록없음"
   }, {
     label: "명상",
     weight: 10,
-    val: score.medMinutes ? `${score.medMinutes}/${goals.meditationGoalMin}분` : "기록없음"
+    val: score.medMinutes ? `${fmtHM(score.medMinutes)}/${fmtHM(goals.meditationGoalMin)}` : "기록없음"
   }, {
     label: "휴식",
     weight: 10,
-    val: score.restMinutes ? `${(score.restMinutes / 60).toFixed(1)}/${goals.restGoalHours}h` : "기록없음"
+    val: score.restMinutes ? `${fmtHM(score.restMinutes)}/${fmtHM((goals.restGoalHours || 1.5) * 60)}` : "기록없음"
   }, {
     label: "화장실",
     weight: 5,
-    val: score.bathroomAvg != null ? score.bathroomAvg >= 90 ? "편함" : score.bathroomAvg >= 50 ? "보통" : "불편" : "기록없음"
+    val: score.bathroomAvg != null ? bathLabel(score.bathroomAvg) : "기록없음"
   }, {
     label: "수면",
     weight: 5,
-    val: score.sleepHours != null ? `${score.sleepHours.toFixed(1)}h` : "기록없음"
+    val: score.sleepHours != null ? `${fmtHM(score.sleepHours * 60)} (${(goals.sleepGoalMinH||6)}~${(goals.sleepGoalMaxH||8)}h)` : "기록없음"
   }];
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -954,13 +976,13 @@ function CheckinCard({
       gap: 2,
       marginBottom: 8
     }
-  }, [0, 1, 2, 3, 4].map(lv => /*#__PURE__*/React.createElement("div", {
+  }, [1, 2, 3, 4, 5].map(lv => /*#__PURE__*/React.createElement("div", {
     key: lv,
     style: {
       flex: 1,
       height: 14,
       border: `1.5px solid ${INK}`,
-      background: data.level >= lv ? GAUGE_COLOR[lv] : "#E8E4EF"
+      background: data.level >= lv ? GAUGE_COLOR[lv - 1] : "#E8E4EF"
     }
   }))), showWake && data.wakeTime != null && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1088,11 +1110,14 @@ function GoalSettings({
     ...(goals || {})
   };
   const [open, setOpen] = useState(false);
-  const [ex, setEx] = useState(goals.exerciseGoalMin);
-  const [med, setMed] = useState(goals.meditationGoalMin);
-  const [rest, setRest] = useState(goals.restGoalHours ?? 1.5);
-  const [fast, setFast] = useState(goals.fastingGoalHours ?? 12);
+  const [exHM, setExHM] = useState(fmtHM(goals.exerciseGoalMin));
+  const [medHM, setMedHM] = useState(fmtHM(goals.meditationGoalMin));
+  const [restHM, setRestHM] = useState(fmtHM((goals.restGoalHours ?? 1.5) * 60));
+  const [fastHM, setFastHM] = useState(fmtHM((goals.fastingGoalHours ?? 12) * 60));
   const [water, setWater] = useState(goals.hydrationGoalL ?? 1.5);
+  const [sleepMinHM, setSleepMinHM] = useState(fmtHM((goals.sleepGoalMinH ?? 6) * 60));
+  const [sleepMaxHM, setSleepMaxHM] = useState(fmtHM((goals.sleepGoalMaxH ?? 8) * 60));
+  const goalLabelStyle = { fontSize: 11, fontWeight: 700, color: "#5B5580", marginBottom: 4 };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
     onClick: () => setOpen(o => !o),
     style: {
@@ -1119,96 +1144,68 @@ function GoalSettings({
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      fontWeight: 700,
-      color: "#5B5580",
-      marginBottom: 4
-    }
-  }, "운동 목표(분)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: ex,
-    onChange: e => setEx(Number(e.target.value)),
-    style: {
-      ...inputStyle,
-      width: "100%"
-    }
+    style: goalLabelStyle
+  }, "운동 목표"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: exHM.length === 4 ? "0" + exHM : exHM,
+    onChange: e => setExHM(e.target.value),
+    style: { ...inputStyle, width: "100%" }
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      fontWeight: 700,
-      color: "#5B5580",
-      marginBottom: 4
-    }
-  }, "명상 목표(분)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: med,
-    onChange: e => setMed(Number(e.target.value)),
-    style: {
-      ...inputStyle,
-      width: "100%"
-    }
+    style: goalLabelStyle
+  }, "명상 목표"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: medHM.length === 4 ? "0" + medHM : medHM,
+    onChange: e => setMedHM(e.target.value),
+    style: { ...inputStyle, width: "100%" }
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      fontWeight: 700,
-      color: "#5B5580",
-      marginBottom: 4
-    }
-  }, "휴식 목표(시간)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    step: "0.1",
-    value: rest,
-    onChange: e => setRest(Number(e.target.value)),
-    style: {
-      ...inputStyle,
-      width: "100%"
-    }
+    style: goalLabelStyle
+  }, "휴식 목표"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: restHM.length === 4 ? "0" + restHM : restHM,
+    onChange: e => setRestHM(e.target.value),
+    style: { ...inputStyle, width: "100%" }
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      fontWeight: 700,
-      color: "#5B5580",
-      marginBottom: 4
-    }
-  }, "공복 목표(시간)"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    step: "0.5",
-    value: fast,
-    onChange: e => setFast(Number(e.target.value)),
-    style: {
-      ...inputStyle,
-      width: "100%"
-    }
+    style: goalLabelStyle
+  }, "공복 목표"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: fastHM.length === 4 ? "0" + fastHM : fastHM,
+    onChange: e => setFastHM(e.target.value),
+    style: { ...inputStyle, width: "100%" }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: goalLabelStyle
+  }, "수면 최소"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: sleepMinHM.length === 4 ? "0" + sleepMinHM : sleepMinHM,
+    onChange: e => setSleepMinHM(e.target.value),
+    style: { ...inputStyle, width: "100%" }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: goalLabelStyle
+  }, "수면 최대"), /*#__PURE__*/React.createElement("input", {
+    type: "time",
+    value: sleepMaxHM.length === 4 ? "0" + sleepMaxHM : sleepMaxHM,
+    onChange: e => setSleepMaxHM(e.target.value),
+    style: { ...inputStyle, width: "100%" }
   })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      gridColumn: "1 / -1"
-    }
+    style: { gridColumn: "1 / -1" }
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      fontWeight: 700,
-      color: "#5B5580",
-      marginBottom: 4
-    }
+    style: goalLabelStyle
   }, "수분 목표(L)"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     step: "0.1",
     value: water,
     onChange: e => setWater(Number(e.target.value)),
-    style: {
-      ...inputStyle,
-      width: "100%"
-    }
+    style: { ...inputStyle, width: "100%" }
   }))), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       onSave({
         ...goals,
-        exerciseGoalMin: ex,
-        meditationGoalMin: med,
-        restGoalHours: rest,
-        fastingGoalHours: fast,
-        hydrationGoalL: water
+        exerciseGoalMin: parseHM(exHM),
+        meditationGoalMin: parseHM(medHM),
+        restGoalHours: parseHM(restHM) / 60,
+        fastingGoalHours: parseHM(fastHM) / 60,
+        hydrationGoalL: water,
+        sleepGoalMinH: parseHM(sleepMinHM) / 60,
+        sleepGoalMaxH: parseHM(sleepMaxHM) / 60
       });
       setOpen(false);
     },
@@ -1371,16 +1368,17 @@ function QuickLogForm({
       ...inputStyle,
       flex: 1
     }
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 2 } },
+    /*#__PURE__*/React.createElement("input", {
     type: "number",
     value: amountMl,
     onChange: e => setAmountMl(e.target.value),
-    placeholder: "ml",
+    placeholder: "250",
     style: {
       ...inputStyle,
-      width: 80
+      width: 65
     }
-  })), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml"))), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 8,
@@ -1424,7 +1422,7 @@ function QuickLogForm({
       display: "flex",
       gap: 8
     }
-  }, ["잘 맞음", "보통", "안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["아주 잘 맞음", "잘 맞음", "보통", "안 맞음", "아주 안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setMealFeel(f),
     style: {
@@ -1498,7 +1496,7 @@ function QuickLogForm({
       gap: 8,
       marginBottom: 10
     }
-  }, ["편함", "보통", "불편"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["아주 편함", "편함", "보통", "불편", "아주 불편"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setFeel(f),
     style: {
@@ -1687,7 +1685,7 @@ function EventRow({
         cell: 1.6
       }), /*#__PURE__*/React.createElement("span", null, "감정 · ", ev.name, ev.memo ? ` · ${ev.memo}` : ""));
     } else {
-      const extra = ev.type === "meal" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` : ev.type === "hydration" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}` : isTimed ? ` ~${ev.endTime} · ${ev.duration}분${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
+      const extra = ev.type === "meal" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` : ev.type === "hydration" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
       content = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Icon, {
         size: 13,
         color: def.color,
@@ -1826,7 +1824,7 @@ function EventEditForm({
       display: "flex",
       gap: 8
     }
-  }, ["잘 맞음", "보통", "안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["아주 잘 맞음", "잘 맞음", "보통", "안 맞음", "아주 안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setFeel(f),
     style: {
@@ -1860,16 +1858,17 @@ function EventEditForm({
       ...inputStyle,
       flex: 1
     }
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 2 } },
+    /*#__PURE__*/React.createElement("input", {
     type: "number",
     value: amountMl,
     onChange: e => setAmountMl(e.target.value),
-    placeholder: "ml",
+    placeholder: "250",
     style: {
       ...inputStyle,
-      width: 80
+      width: 65
     }
-  })), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml"))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -1941,7 +1940,7 @@ function EventEditForm({
       gap: 8,
       marginBottom: 8
     }
-  }, ["편함", "보통", "불편"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["아주 편함", "편함", "보통", "불편", "아주 불편"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setFeel(f),
     style: {
@@ -2259,17 +2258,17 @@ function TodayView({
   const buildMarkdown = () => {
     const lines = [`# ${fmtDateKR(date)} — BALANCE`, ""];
     if (score) lines.push(`**컨디션 점수**: ${score.total}점`, "");
-    lines.push("## 아침", entry.morning ? `- 컨디션: ${entry.morning.level}/4` : "- 기록 없음");
+    lines.push("## 아침", entry.morning ? `- 컨디션: ${entry.morning.level}/5` : "- 기록 없음");
     if (entry.morning?.wakeTime) lines.push(`- 기상: ${entry.morning.wakeTime}`);
     if (entry.morning?.note) lines.push(`- 메모: ${entry.morning.note}`);
-    lines.push("", "## 저녁", entry.evening ? `- 컨디션: ${entry.evening.level}/4` : "- 기록 없음");
+    lines.push("", "## 저녁", entry.evening ? `- 컨디션: ${entry.evening.level}/5` : "- 기록 없음");
     if (entry.evening?.bedTime) lines.push(`- 취침: ${entry.evening.bedTime}${entry.evening.bedNextDay ? " (다음날 새벽)" : ""}`);
     if (entry.evening?.note) lines.push(`- 메모: ${entry.evening.note}`);
     lines.push("", "## 오늘의 실");
     entry.events.forEach(ev => {
       const def = EVENT_TYPES[ev.type];
       let desc = def.label;
-      if (ev.type === "emotion") desc = `감정 · ${ev.name}${ev.memo ? ` (${ev.memo})` : ""}`;else if (ev.type === "meal") desc += `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}`;else if (ev.type === "hydration") desc += `${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}`;else if (ev.type === "exercise" || ev.type === "meditation" || ev.type === "activity" || ev.type === "rest") desc += ` · ${ev.duration}분${ev.memo ? ` (${ev.memo})` : ""}`;else if (ev.type === "bathroom") desc += `${ev.feel ? ` · ${ev.feel}` : ""}${ev.memo ? ` (${ev.memo})` : ""}`;
+      if (ev.type === "emotion") desc = `감정 · ${ev.name}${ev.memo ? ` (${ev.memo})` : ""}`;else if (ev.type === "meal") desc += `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}`;else if (ev.type === "hydration") desc += `${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}`;else if (ev.type === "exercise" || ev.type === "meditation" || ev.type === "activity" || ev.type === "rest") desc += ` · ${fmtHM(ev.duration)}${ev.memo ? ` (${ev.memo})` : ""}`;else if (ev.type === "bathroom") desc += `${ev.feel ? ` · ${ev.feel}` : ""}${ev.memo ? ` (${ev.memo})` : ""}`;
       lines.push(`- ${ev.time} ${desc}`);
     });
     return lines.join("\n");
@@ -2790,7 +2789,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#D98A2B"
-    }), "공복 ", fastOn ? `${score.fastHours.toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "공복 ", fastOn ? fmtHM(score.fastHours * 60) : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: sleepOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2801,7 +2800,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#9B6FC7"
-    }), "수면 ", sleepOn ? `${score.sleepHours.toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "수면 ", sleepOn ? fmtHM(score.sleepHours * 60) : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: waterOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2823,7 +2822,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#38B27E"
-    }), "운동 ", exOn ? `${score.exMinutes}분` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "운동 ", exOn ? fmtHM(score.exMinutes) : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: medOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2834,7 +2833,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#3BAEC9"
-    }), "명상 ", medOn ? `${score.medMinutes}분` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "명상 ", medOn ? fmtHM(score.medMinutes) : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: restOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2845,7 +2844,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#6D7BD9"
-    }), "휴식 ", restOn ? `${(score.restMinutes / 60).toFixed(1)}h` : "기록없음"), /*#__PURE__*/React.createElement("span", {
+    }), "휴식 ", restOn ? fmtHM(score.restMinutes) : "기록없음"), /*#__PURE__*/React.createElement("span", {
       style: {
         color: bathOn ? "#5B5580" : "#B0A8C4",
         display: "inline-flex",
@@ -2856,7 +2855,7 @@ function FlowView({
       size: 12,
       strokeWidth: 2.5,
       color: "#FF7A59"
-    }), "화장실 ", bathOn ? score.bathroomAvg >= 90 ? "편함" : score.bathroomAvg >= 50 ? "보통" : "불편" : "기록없음")));
+    }), "화장실 ", bathOn ? score.bathroomAvg >= 90 ? "아주 편함" : score.bathroomAvg >= 70 ? "편함" : score.bathroomAvg >= 50 ? "보통" : score.bathroomAvg >= 30 ? "불편" : "아주 불편" : "기록없음")));
   })), mealStats && /*#__PURE__*/React.createElement("div", {
     style: {
       background: CARD,
@@ -2947,18 +2946,18 @@ function ArchiveView() {
         const emotionList = (score?.emotions || []).map(e => `${e.time} ${e.name}`).join(", ");
         return {
           "날짜": d,
-          "아침 컨디션(0-4)": entry.morning?.level ?? "",
-          "저녁 컨디션(0-4)": entry.evening?.level ?? "",
+          "아침 컨디션(1-5)": entry.morning?.level ?? "",
+          "저녁 컨디션(1-5)": entry.evening?.level ?? "",
           "기상시간": entry.morning?.wakeTime ?? "",
           "취침시간": entry.evening?.bedTime ?? "",
-          "수면시간(h)": score?.sleepHours != null ? Number(score.sleepHours.toFixed(1)) : "",
-          "공복시간(h)": score?.fastHours != null ? Number(score.fastHours.toFixed(1)) : "",
+          "수면시간": score?.sleepHours != null ? fmtHM(score.sleepHours * 60) : "",
+          "공복시간": score?.fastHours != null ? fmtHM(score.fastHours * 60) : "",
           "식사횟수": score?.meals?.length ?? 0,
           "수분(L)": score?.hydrationMl ? Number((score.hydrationMl / 1000).toFixed(2)) : "",
-          "운동(분)": score?.exMinutes ?? "",
-          "명상(분)": score?.medMinutes ?? "",
-          "휴식(h)": score?.restMinutes ? Number((score.restMinutes / 60).toFixed(1)) : "",
-          "화장실상태": score?.bathroomAvg != null ? score.bathroomAvg >= 90 ? "편함" : score.bathroomAvg >= 50 ? "보통" : "불편" : "",
+          "운동": score?.exMinutes ? fmtHM(score.exMinutes) : "",
+          "명상": score?.medMinutes ? fmtHM(score.medMinutes) : "",
+          "휴식": score?.restMinutes ? fmtHM(score.restMinutes) : "",
+          "화장실상태": score?.bathroomAvg != null ? score.bathroomAvg >= 90 ? "아주 편함" : score.bathroomAvg >= 70 ? "편함" : score.bathroomAvg >= 50 ? "보통" : score.bathroomAvg >= 30 ? "불편" : "아주 불편" : "",
           "감정기록": emotionList,
           "컨디션점수": score?.total ?? ""
         };
@@ -3240,7 +3239,7 @@ function ArchiveView() {
       color: "#5B5580",
       marginBottom: 6
     }
-  }, "🌤️ 아침 컨디션 ", openEntry.morning.level, "/4", openEntry.morning.wakeTime ? ` · 기상 ${openEntry.morning.wakeTime}` : "", openEntry.morning.note ? ` · ${openEntry.morning.note}` : ""), /*#__PURE__*/React.createElement("div", {
+  }, "🌤️ 아침 컨디션 ", openEntry.morning.level, "/5", openEntry.morning.wakeTime ? ` · 기상 ${openEntry.morning.wakeTime}` : "", openEntry.morning.note ? ` · ${openEntry.morning.note}` : ""), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -3262,7 +3261,7 @@ function ArchiveView() {
     }
   }, openEntry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "🌤️ 기상", openEntry.morning.note ? ` · ${openEntry.morning.note}` : "")), openEntry.events.map(ev => {
     const def = EVENT_TYPES[ev.type];
-    const extra = ev.type === "emotion" ? ` · ${ev.name}${ev.memo ? " (" + ev.memo + ")" : ""}` : ev.type === "meal" ? (ev.label ? " · " + ev.label : "") + (ev.feel ? " · " + ev.feel : "") : ev.type === "hydration" ? (ev.label ? " · " + ev.label : "") + (ev.amountMl ? " · " + ev.amountMl + "ml" : "") : ev.duration ? " · " + ev.duration + "분" + (ev.memo ? " (" + ev.memo + ")" : "") : ev.feel ? " · " + ev.feel : "";
+    const extra = ev.type === "emotion" ? ` · ${ev.name}${ev.memo ? " (" + ev.memo + ")" : ""}` : ev.type === "meal" ? (ev.label ? " · " + ev.label : "") + (ev.feel ? " · " + ev.feel : "") : ev.type === "hydration" ? (ev.label ? " · " + ev.label : "") + (ev.amountMl ? " · " + ev.amountMl + "ml" : "") : ev.duration ? " · " + fmtHM(ev.duration) + (ev.memo ? " (" + ev.memo + ")" : "") : ev.feel ? " · " + ev.feel : "";
     return /*#__PURE__*/React.createElement("div", {
       key: ev.id,
       style: {
@@ -3297,7 +3296,7 @@ function ArchiveView() {
       color: "#5B5580",
       marginTop: 6
     }
-  }, "🌙 저녁 컨디션 ", openEntry.evening.level, "/4", openEntry.evening.bedTime ? ` · 취침 ${openEntry.evening.bedTime}` : "", openEntry.evening.note ? ` · ${openEntry.evening.note}` : "")), monthAgo && /*#__PURE__*/React.createElement("div", {
+  }, "🌙 저녁 컨디션 ", openEntry.evening.level, "/5", openEntry.evening.bedTime ? ` · 취침 ${openEntry.evening.bedTime}` : "", openEntry.evening.note ? ` · ${openEntry.evening.note}` : "")), monthAgo && /*#__PURE__*/React.createElement("div", {
     style: {
       background: "#EFE3FA",
       border: `3px solid ${INK}`,
