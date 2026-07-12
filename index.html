@@ -519,30 +519,36 @@ async function listEntryDates() {
     return [];
   }
 }
+const SCORING_VERSION = 2;
 async function loadMonthlySummary(year, month, goals) {
   const mm = String(month + 1).padStart(2, "0");
-  const res = await window.storage.get(`summary:${year}-${mm}`);
-  if (res) return JSON.parse(res.value);
-  // 요약 키가 없으면 기존 기록으로 한 번 생성 (백필)
+  const sKey = `summary:${year}-${mm}`;
+  const res = await window.storage.get(sKey);
+  if (res) {
+    const parsed = JSON.parse(res.value);
+    if (parsed._sv === SCORING_VERSION) return parsed;
+  }
   const allDates = await listEntryDates();
   const monthDates = allDates.filter(d => d.startsWith(`${year}-${mm}-`));
-  if (!monthDates.length) return {};
-  const summary = {};
+  if (!monthDates.length) return { _sv: SCORING_VERSION };
+  const summary = { _sv: SCORING_VERSION };
   for (const date of monthDates) {
     const [entry, prev] = await Promise.all([loadEntry(date), loadEntry(addDays(date, -1))]);
     if (!entry) continue;
     const score = computeDayScore(entry, prev, goals || DEFAULT_GOALS);
     if (score) summary[date] = { total: score.total, level: Math.min(4, Math.round(score.total / 100 * 4)) };
   }
-  await window.storage.set(`summary:${year}-${mm}`, JSON.stringify(summary)).catch(() => {});
+  await window.storage.set(sKey, JSON.stringify(summary)).catch(() => {});
   return summary;
 }
 async function updateMonthlySummaryEntry(date, score) {
   const [year, mm] = date.split('-');
-  const res = await window.storage.get(`summary:${year}-${mm}`);
+  const sKey = `summary:${year}-${mm}`;
+  const res = await window.storage.get(sKey);
   const summary = res ? JSON.parse(res.value) : {};
+  summary._sv = SCORING_VERSION;
   summary[date] = score ? { total: score.total, level: Math.min(4, Math.round(score.total / 100 * 4)) } : null;
-  await window.storage.set(`summary:${year}-${mm}`, JSON.stringify(summary));
+  await window.storage.set(sKey, JSON.stringify(summary));
 }
 const DEFAULT_GOALS = {
   exerciseGoalMin: 30,
@@ -581,22 +587,22 @@ function computeDayScore(entry, prevEntry, goals) {
   if (!entry) return null;
   const hasAnyData = !!(entry.morning || entry.evening || entry.events.length);
   if (!hasAnyData) return null;
+  const parts = [];
 
-  const morningV = entry.morning ? entry.morning.level / 5 * 100 : 0;
-  const eveningV = entry.evening ? entry.evening.level / 5 * 100 : 0;
+  if (entry.morning) parts.push({ key: "morning", v: entry.morning.level / 5 * 100, w: 15 });
+  if (entry.evening) parts.push({ key: "evening", v: entry.evening.level / 5 * 100, w: 10 });
 
   const meals = entry.events.filter(e => e.type === "meal").map(e => e.time).sort();
   const prevMeals = prevEntry ? prevEntry.events.filter(e => e.type === "meal").map(e => e.time).sort() : [];
   let fastHours = null;
   let fastFrom = null, fastTo = null;
-  let fastV = 0;
   if (meals.length && prevMeals.length) {
     fastFrom = prevMeals[prevMeals.length - 1];
     fastTo = meals[0];
     const fastMin = 1440 - toMin(fastFrom) + toMin(fastTo);
     fastHours = fastMin / 60;
     const goalH = goals.fastingGoalHours || 12;
-    fastV = fastHours >= goalH ? 100 : Math.min(100, fastHours / goalH * 100);
+    parts.push({ key: "fasting", v: fastHours >= goalH ? 100 : Math.min(100, fastHours / goalH * 100), w: 10 });
   }
 
   const foodSub = [];
@@ -613,32 +619,36 @@ function computeDayScore(entry, prevEntry, goals) {
     };
     foodSub.push(mealFeels.reduce((a, e) => a + (feelMap[e.feel] ?? 60), 0) / mealFeels.length);
   }
-  const foodV = foodSub.length ? foodSub.reduce((a, b) => a + b, 0) / foodSub.length : 0;
+  if (foodSub.length) parts.push({ key: "food", v: foodSub.reduce((a, b) => a + b, 0) / foodSub.length, w: 10 });
 
   const hydrationMl = entry.events.filter(e => e.type === "hydration").reduce((a, e) => a + (Number(e.amountMl) || 0), 0);
-  const hydGoal = (goals.hydrationGoalL || 1.5) * 1000;
-  const hydrationV = hydrationMl >= hydGoal ? 100 : Math.min(100, hydrationMl / hydGoal * 100);
+  if (hydrationMl > 0) {
+    const hydGoal = (goals.hydrationGoalL || 1.5) * 1000;
+    parts.push({ key: "hydration", v: hydrationMl >= hydGoal ? 100 : Math.min(100, hydrationMl / hydGoal * 100), w: 10 });
+  }
 
   const exMinutes = entry.events.filter(e => e.type === "exercise").reduce((a, e) => a + (e.duration || 0), 0);
-  const exGoal = goals.exerciseGoalMin || 30;
-  const exerciseV = exMinutes >= exGoal ? 100 : Math.min(100, exMinutes / exGoal * 100);
+  if (exMinutes > 0) {
+    const exGoal = goals.exerciseGoalMin || 30;
+    parts.push({ key: "exercise", v: exMinutes >= exGoal ? 100 : Math.min(100, exMinutes / exGoal * 100), w: 10 });
+  }
 
   const medMinutes = entry.events.filter(e => e.type === "meditation").reduce((a, e) => a + (e.duration || 0), 0);
-  const medGoal = goals.meditationGoalMin || 20;
-  const meditationV = medMinutes >= medGoal ? 100 : Math.min(100, medMinutes / medGoal * 100);
+  if (medMinutes > 0) {
+    const medGoal = goals.meditationGoalMin || 20;
+    parts.push({ key: "meditation", v: medMinutes >= medGoal ? 100 : Math.min(100, medMinutes / medGoal * 100), w: 10 });
+  }
 
   const restMinutes = entry.events.filter(e => e.type === "rest").reduce((a, e) => a + (e.duration || 0), 0);
 
   const bathroomEvents = entry.events.filter(e => e.type === "bathroom" && e.feel);
   let bathroomAvg = null;
-  let bathroomV = 0;
   if (bathroomEvents.length) {
     bathroomAvg = bathroomEvents.reduce((a, e) => a + (BATHROOM_SCORE[e.feel] ?? 60), 0) / bathroomEvents.length;
-    bathroomV = bathroomAvg;
+    parts.push({ key: "bathroom", v: bathroomAvg, w: 15 });
   }
 
   let sleepHours = null, sleepFrom = null, sleepTo = null;
-  let sleepV = 0;
   const wakeTime = entry.morning?.wakeTime ?? null;
   const prevBedTime = prevEntry?.evening?.bedTime ?? null;
   const prevBedNextDay = prevEntry?.evening?.bedNextDay ?? null;
@@ -656,17 +666,16 @@ function computeDayScore(entry, prevEntry, goals) {
     sleepHours = sleepMin / 60;
     const sMin = goals.sleepGoalMinH || 6;
     const sMax = goals.sleepGoalMaxH || 8;
-    sleepV = 100;
-    if (sleepHours < sMin) sleepV = Math.max(0, 100 - Math.ceil((sMin - sleepHours) / 0.5) * 20);
-    else if (sleepHours > sMax) sleepV = Math.max(0, 100 - Math.ceil((sleepHours - sMax) / 0.5) * 20);
+    let sv = 100;
+    if (sleepHours < sMin) sv = Math.max(0, 100 - Math.ceil((sMin - sleepHours) / 0.5) * 20);
+    else if (sleepHours > sMax) sv = Math.max(0, 100 - Math.ceil((sleepHours - sMax) / 0.5) * 20);
+    parts.push({ key: "sleep", v: sv, w: 10 });
   }
   const emotions = entry.events.filter(e => e.type === "emotion");
 
-  const total = Math.round(
-    morningV * 0.15 + eveningV * 0.10 + fastV * 0.10 + foodV * 0.10 +
-    hydrationV * 0.10 + exerciseV * 0.10 + meditationV * 0.10 +
-    bathroomV * 0.15 + sleepV * 0.10
-  );
+  if (!parts.length) return null;
+  const totalW = parts.reduce((a, p) => a + p.w, 0);
+  const total = Math.round(parts.reduce((a, p) => a + p.v * p.w, 0) / totalW);
   return {
     total,
     meals,
@@ -678,6 +687,7 @@ function computeDayScore(entry, prevEntry, goals) {
     medMinutes,
     restMinutes,
     bathroomAvg,
+    bathroomCount: bathroomEvents.length,
     sleepHours,
     sleepFrom,
     sleepTo,
@@ -754,46 +764,60 @@ function ScoreInfo({
 }) {
   const [open, setOpen] = useState(false);
   const bathLabel = v => v >= 90 ? "아주 편함" : v >= 70 ? "편함" : v >= 50 ? "보통" : v >= 30 ? "불편" : "아주 불편";
+  const exGoal = goals.exerciseGoalMin || 30;
+  const medGoal = goals.meditationGoalMin || 20;
+  const hydGoalMl = (goals.hydrationGoalL || 1.5) * 1000;
+  const fastGoalH = goals.fastingGoalHours || 12;
+  const morningPt = entry.morning ? Math.round(entry.morning.level / 5 * 100) : null;
+  const eveningPt = entry.evening ? Math.round(entry.evening.level / 5 * 100) : null;
+  const fastPt = score.fastHours != null ? (score.fastHours >= fastGoalH ? 100 : Math.round(Math.min(100, score.fastHours / fastGoalH * 100))) : null;
+  const foodPt = score.meals.length ? Math.round((() => { const sub = []; if (score.meals.length >= 2) { const gaps = []; for (let i = 1; i < score.meals.length; i++) gaps.push(toMin(score.meals[i]) - toMin(score.meals[i-1])); sub.push(Math.max(0, 100 - gaps.filter(g=>g<90).length*25)); } const feels = entry.events.filter(e=>e.type==="meal"&&e.feel); if (feels.length) { const fm = {"아주 잘 맞음":100,"잘 맞음":80,"보통":60,"안 맞음":40,"아주 안 맞음":20}; sub.push(feels.reduce((a,e)=>a+(fm[e.feel]??60),0)/feels.length); } return sub.length ? sub.reduce((a,b)=>a+b,0)/sub.length : 0; })()) : null;
+  const hydPt = score.hydrationMl > 0 ? (score.hydrationMl >= hydGoalMl ? 100 : Math.round(Math.min(100, score.hydrationMl / hydGoalMl * 100))) : null;
+  const exPt = score.exMinutes > 0 ? (score.exMinutes >= exGoal ? 100 : Math.round(Math.min(100, score.exMinutes / exGoal * 100))) : null;
+  const medPt = score.medMinutes > 0 ? (score.medMinutes >= medGoal ? 100 : Math.round(Math.min(100, score.medMinutes / medGoal * 100))) : null;
+  const bathPt = score.bathroomAvg != null ? Math.round(score.bathroomAvg) : null;
+  const sleepPt = score.sleepHours != null ? (() => { const sMin = goals.sleepGoalMinH||6, sMax = goals.sleepGoalMaxH||8; if (score.sleepHours < sMin) return Math.max(0, 100 - Math.ceil((sMin - score.sleepHours)/0.5)*20); if (score.sleepHours > sMax) return Math.max(0, 100 - Math.ceil((score.sleepHours - sMax)/0.5)*20); return 100; })() : null;
+  const fmtPt = pt => pt != null ? `${pt}점` : "-";
   const rows = [{
     label: "아침",
     weight: 15,
-    val: entry.morning ? `${entry.morning.level}/5` : "0"
+    val: entry.morning ? `${entry.morning.level}/5 · ${fmtPt(morningPt)}` : "-"
   }, {
     label: "저녁",
     weight: 10,
-    val: entry.evening ? `${entry.evening.level}/5` : "0"
+    val: entry.evening ? `${entry.evening.level}/5 · ${fmtPt(eveningPt)}` : "-"
   }, {
     label: "공복",
     weight: 10,
-    val: score.fastHours != null ? fmtHM(score.fastHours * 60) : "0"
+    val: score.fastHours != null ? `${fmtHM(score.fastHours * 60)} · ${fmtPt(fastPt)}` : "-"
   }, {
     label: "음식",
     weight: 10,
-    val: score.meals.length ? `${score.meals.length}회` : "0"
+    val: score.meals.length ? `${score.meals.length}회 · ${fmtPt(foodPt)}` : "-"
   }, {
     label: "수분",
     weight: 10,
-    val: score.hydrationMl ? `${(score.hydrationMl / 1000).toFixed(2)}/${goals.hydrationGoalL}L` : "0"
+    val: score.hydrationMl > 0 ? `${(score.hydrationMl / 1000).toFixed(2)}L · ${fmtPt(hydPt)}` : "-"
   }, {
     label: "운동",
     weight: 10,
-    val: score.exMinutes ? `${fmtHM(score.exMinutes)}/${fmtHM(goals.exerciseGoalMin)}` : "0"
+    val: score.exMinutes > 0 ? `${fmtHM(score.exMinutes)} · ${fmtPt(exPt)}` : "-"
   }, {
     label: "명상",
     weight: 10,
-    val: score.medMinutes ? `${fmtHM(score.medMinutes)}/${fmtHM(goals.meditationGoalMin)}` : "0"
+    val: score.medMinutes > 0 ? `${fmtHM(score.medMinutes)} · ${fmtPt(medPt)}` : "-"
   }, {
     label: "휴식",
     weight: 0,
-    val: score.restMinutes ? `${fmtHM(score.restMinutes)}/${fmtHM((goals.restGoalHours || 1.5) * 60)}` : "-"
+    val: score.restMinutes ? fmtHM(score.restMinutes) : "-"
   }, {
     label: "화장실",
     weight: 15,
-    val: score.bathroomAvg != null ? bathLabel(score.bathroomAvg) : "0"
+    val: score.bathroomAvg != null ? `${score.bathroomCount}회 · ${bathLabel(score.bathroomAvg)} · ${fmtPt(bathPt)}` : "-"
   }, {
     label: "수면",
     weight: 10,
-    val: score.sleepHours != null ? `${fmtHM(score.sleepHours * 60)} (${(goals.sleepGoalMinH||6)}~${(goals.sleepGoalMaxH||8)}h)` : "0"
+    val: score.sleepHours != null ? `${fmtHM(score.sleepHours * 60)} · ${fmtPt(sleepPt)}` : "-"
   }];
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2671,7 +2695,7 @@ function FlowView({
       padding: "4px 6px 2px",
       lineHeight: 1.6
     }
-  }, "아침(15%)·저녁(10%)·공복(10%)·음식(10%)·수분(10%)·운동(10%)·명상(10%)·화장실(15%)·수면(10%) 합산. 휴식·감정은 점수 미반영. 기록 없는 항목은 0점.")), /*#__PURE__*/React.createElement(SectionLabel, {
+  }, "아침(15%)·저녁(10%)·공복(10%)·음식(10%)·수분(10%)·운동(10%)·명상(10%)·화장실(15%)·수면(10%) 합산. 휴식·감정은 점수 미반영. 기록 없는 항목은 제외 후 재계산.")), /*#__PURE__*/React.createElement(SectionLabel, {
     emoji: "🗓️"
   }, "하루하루"), /*#__PURE__*/React.createElement("div", {
     style: {
