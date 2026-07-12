@@ -989,7 +989,7 @@ function CheckinCard({
   }, /*#__PURE__*/React.createElement("button", {
     onClick: () => setEditing(true),
     style: ghostBtn
-  }, "다시 적기"), onDelete && /*#__PURE__*/React.createElement("button", {
+  }, "수정"), onDelete && /*#__PURE__*/React.createElement("button", {
     onClick: () => {
       if (window.confirm(`${title} 기록을 삭제할까요?`)) onDelete();
     },
@@ -3540,7 +3540,13 @@ function App() {
   const [entry, setEntry] = useState(null);
   const [goals, setGoals] = useState(DEFAULT_GOALS);
   useEffect(() => {
-    (async () => setEntry(await loadEntry(date)))();
+    let cancelled = false;
+    setEntry(null);
+    (async () => {
+      const e = await loadEntry(date);
+      if (!cancelled) setEntry(e);
+    })();
+    return () => { cancelled = true; };
   }, [date, user]);
   useEffect(() => {
     (async () => setGoals(await loadGoals()))();
