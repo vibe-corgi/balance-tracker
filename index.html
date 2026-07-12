@@ -925,7 +925,8 @@ function CheckinCard({
   onSave,
   onDelete,
   showWake,
-  showBed
+  showBed,
+  showPeriod
 }) {
   const [editing, setEditing] = useState(false);
   const [level, setLevel] = useState(data?.level ?? 2);
@@ -933,6 +934,7 @@ function CheckinCard({
   const [wakeTime, setWakeTime] = useState(data?.wakeTime ?? nowHM());
   const [bedTime, setBedTime] = useState(data?.bedTime ?? nowHM());
   const [bedNextDay, setBedNextDay] = useState(data?.bedNextDay ?? false);
+  const [period, setPeriod] = useState(data?.period ?? false);
   const save = () => {
     const payload = {
       level,
@@ -944,6 +946,7 @@ function CheckinCard({
       payload.bedTime = bedTime;
       payload.bedNextDay = bedNextDay;
     }
+    if (showPeriod) payload.period = period;
     onSave(payload);
     setEditing(false);
   };
@@ -1003,7 +1006,14 @@ function CheckinCard({
       color: "#8a80a0",
       marginTop: 2
     }
-  }, "취침 ", data.bedTime, data.bedNextDay ? " (다음날 새벽)" : ""), data.note && /*#__PURE__*/React.createElement("p", {
+  }, "취침 ", data.bedTime, data.bedNextDay ? " (다음날 새벽)" : ""), showPeriod && data.period && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: "#E74C8B",
+      marginTop: 2,
+      fontWeight: 700
+    }
+  }, "🩸 생리중"), data.note && /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 12.5,
       color: "#5B5580",
@@ -1095,7 +1105,23 @@ function CheckinCard({
       background: bedNextDay ? INK : "#EFE3FA",
       color: bedNextDay ? "#fff" : INK
     }
-  }, "+다음날 새벽"))), /*#__PURE__*/React.createElement("textarea", {
+  }, "+다음날 새벽"))), showPeriod && /*#__PURE__*/React.createElement("div", {
+    style: { marginTop: 10 }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setPeriod(v => !v),
+    style: {
+      width: "100%",
+      padding: "10px 0",
+      border: `2px solid ${period ? "#E74C8B" : INK}`,
+      borderRadius: 2,
+      cursor: "pointer",
+      fontSize: 12.5,
+      fontWeight: 700,
+      background: period ? "#E74C8B" : "#EFE3FA",
+      color: period ? "#fff" : INK
+    }
+  }, "🩸 생리중")), /*#__PURE__*/React.createElement("textarea", {
     value: note,
     onChange: e => setNote(e.target.value),
     placeholder: "한두 줄이면 충분해요",
@@ -2350,6 +2376,7 @@ function TodayView({
     }
     lines.push("## 아침", entry.morning ? `- 컨디션: ${entry.morning.level}/5` : "- 기록 없음");
     if (entry.morning?.wakeTime) lines.push(`- 기상: ${entry.morning.wakeTime}`);
+    if (entry.morning?.period) lines.push(`- 🩸 생리중`);
     if (entry.morning?.note) lines.push(`- 메모: ${entry.morning.note}`);
     lines.push("", "## 저녁", entry.evening ? `- 컨디션: ${entry.evening.level}/5` : "- 기록 없음");
     if (entry.evening?.bedTime) lines.push(`- 취침: ${entry.evening.bedTime}${entry.evening.bedNextDay ? " (다음날 새벽)" : ""}`);
@@ -2496,7 +2523,8 @@ function TodayView({
     data: entry.morning,
     onSave: saveMorning,
     onDelete: deleteMorning,
-    showWake: true
+    showWake: true,
+    showPeriod: true
   }), /*#__PURE__*/React.createElement(QuickLogRow, {
     onAdd: addEvent,
     goals: goals,
@@ -2539,7 +2567,7 @@ function TodayView({
       fontVariantNumeric: "tabular-nums",
       fontWeight: 700
     }
-  }, entry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "🌤️ 기상", entry.morning.note ? ` · ${entry.morning.note}` : "")), entry.events.map(ev => /*#__PURE__*/React.createElement(EventRow, {
+  }, entry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "🌤️ 기상", entry.morning.period ? " · 🩸 생리중" : "", entry.morning.note ? ` · ${entry.morning.note}` : "")), entry.events.map(ev => /*#__PURE__*/React.createElement(EventRow, {
     key: ev.id,
     ev: ev,
     onUpdate: updateEvent,
@@ -3037,6 +3065,7 @@ function ArchiveView() {
           "날짜": d,
           "아침 컨디션(1-5)": entry.morning?.level ?? "",
           "저녁 컨디션(1-5)": entry.evening?.level ?? "",
+          "생리": entry.morning?.period ? "O" : "",
           "기상시간": entry.morning?.wakeTime ?? "",
           "취침시간": entry.evening?.bedTime ?? "",
           "수면시간": score?.sleepHours != null ? fmtHM(score.sleepHours * 60) : "",
@@ -3332,7 +3361,7 @@ function ArchiveView() {
       color: "#5B5580",
       marginBottom: 6
     }
-  }, "🌤️ 아침 컨디션 ", openEntry.morning.level, "/5", openEntry.morning.wakeTime ? ` · 기상 ${openEntry.morning.wakeTime}` : "", openEntry.morning.note ? ` · ${openEntry.morning.note}` : ""), /*#__PURE__*/React.createElement("div", {
+  }, "🌤️ 아침 컨디션 ", openEntry.morning.level, "/5", openEntry.morning.wakeTime ? ` · 기상 ${openEntry.morning.wakeTime}` : "", openEntry.morning.period ? " · 🩸 생리중" : "", openEntry.morning.note ? ` · ${openEntry.morning.note}` : ""), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
