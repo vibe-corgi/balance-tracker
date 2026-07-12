@@ -488,7 +488,13 @@ function emptyEntry(date) {
 async function loadEntry(date, attempt = 0) {
   try {
     const res = await window.storage.get(`entry:${date}`);
-    return res ? JSON.parse(res.value) : emptyEntry(date);
+    if (!res) return emptyEntry(date);
+    const e = JSON.parse(res.value);
+    if (!e._lv) {
+      if (e.morning && e.morning.level != null) e.morning.level = Math.min(e.morning.level + 1, 5);
+      if (e.evening && e.evening.level != null) e.evening.level = Math.min(e.evening.level + 1, 5);
+    }
+    return e;
   } catch (e) {
     if (attempt < 2) {
       await new Promise(r => setTimeout(r, 300 * (attempt + 1)));
@@ -499,6 +505,7 @@ async function loadEntry(date, attempt = 0) {
 }
 async function saveEntry(entry, attempt = 0) {
   try {
+    entry._lv = 2;
     const res = await window.storage.set(`entry:${entry.date}`, JSON.stringify(entry));
     if (!res) throw new Error("empty response");
     return true;
@@ -519,7 +526,7 @@ async function listEntryDates() {
     return [];
   }
 }
-const SCORING_VERSION = 2;
+const SCORING_VERSION = 3;
 async function loadMonthlySummary(year, month, goals) {
   const mm = String(month + 1).padStart(2, "0");
   const sKey = `summary:${year}-${mm}`;
@@ -2115,7 +2122,7 @@ function NotionCopyModal({ text, onClose }) {
     style: { fontSize: 12, color: "#8a80a0" }
   }, "Ctrl+A → Ctrl+C 후 Notion에 붙여넣기")),
   /*#__PURE__*/React.createElement("div", {
-    ref: textRef, onClick: handleSelectAll,
+    ref: textRef,
     style: {
       flex: 1, overflow: "auto", padding: "16px 24px",
       fontSize: 13, lineHeight: 1.7, color: "#333",
