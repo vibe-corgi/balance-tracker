@@ -2665,44 +2665,21 @@ function TodayView({
       flexDirection: "column",
       gap: 6
     }
-  }, entry.morning?.wakeTime && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      fontSize: 12.5,
-      color: "#5B5580",
-      padding: "3px 0"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      width: 42,
-      color: "#8a80a0",
-      fontVariantNumeric: "tabular-nums",
-      fontWeight: 700
-    }
-  }, entry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "🌤️ 기상", entry.morning.period ? " · 🩸 생리중" : "", entry.morning.note ? ` · ${entry.morning.note}` : "")), entry.events.map(ev => /*#__PURE__*/React.createElement(EventRow, {
-    key: ev.id,
-    ev: ev,
-    onUpdate: updateEvent,
-    onDelete: deleteEvent
-  })), entry.evening?.bedTime && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 8,
-      fontSize: 12.5,
-      color: "#5B5580",
-      padding: "3px 0"
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      width: 42,
-      color: "#8a80a0",
-      fontVariantNumeric: "tabular-nums",
-      fontWeight: 700
-    }
-  }, entry.evening.bedTime), /*#__PURE__*/React.createElement("span", null, "🌙 취침", entry.evening.note ? ` · ${entry.evening.note}` : "", entry.evening.bedNextDay ? " (다음날 새벽)" : ""))), /*#__PURE__*/React.createElement(CheckinCard, {
+  }, timelineEvents.map(e => {
+    if (e.type === "wake") return /*#__PURE__*/React.createElement("div", {
+      key: "wake",
+      style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#5B5580", padding: "3px 0" }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: { width: 42, color: "#8a80a0", fontVariantNumeric: "tabular-nums", fontWeight: 700 }
+    }, entry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "🌤️ 기상", entry.morning.period ? " · 🩸 생리중" : "", entry.morning.note ? ` · ${entry.morning.note}` : ""));
+    if (e.type === "bed") return /*#__PURE__*/React.createElement("div", {
+      key: "bed",
+      style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#5B5580", padding: "3px 0" }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: { width: 42, color: "#8a80a0", fontVariantNumeric: "tabular-nums", fontWeight: 700 }
+    }, entry.evening.bedTime), /*#__PURE__*/React.createElement("span", null, "🌙 취침", entry.evening.note ? ` · ${entry.evening.note}` : "", entry.evening.bedNextDay ? " (다음날 새벽)" : ""));
+    return /*#__PURE__*/React.createElement(EventRow, { key: e.id, ev: e, onUpdate: updateEvent, onDelete: deleteEvent });
+  })), /*#__PURE__*/React.createElement(CheckinCard, {
     key: date + "-evening",
     title: "저녁",
     sub: "자기 전",
