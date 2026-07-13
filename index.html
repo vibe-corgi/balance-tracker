@@ -570,6 +570,7 @@ const DEFAULT_GOALS = {
   restGoalHours: 1.5,
   fastingGoalHours: 12,
   hydrationGoalL: 1.5,
+  healthDrinkGoal: 1,
   sleepGoalMinH: 6,
   sleepGoalMaxH: 8
 };
@@ -1155,6 +1156,7 @@ function GoalSettings({
   const [restHM, setRestHM] = useState(fmtHM((goals.restGoalHours ?? 1.5) * 60));
   const [fastHM, setFastHM] = useState(fmtHM((goals.fastingGoalHours ?? 12) * 60));
   const [water, setWater] = useState(goals.hydrationGoalL ?? 1.5);
+  const [healthDrink, setHealthDrink] = useState(goals.healthDrinkGoal ?? 1);
   const [sleepMinHM, setSleepMinHM] = useState(fmtHM((goals.sleepGoalMinH ?? 6) * 60));
   const [sleepMaxHM, setSleepMaxHM] = useState(fmtHM((goals.sleepGoalMaxH ?? 8) * 60));
   const goalLabelStyle = { fontSize: 11, fontWeight: 700, color: "#5B5580", marginBottom: 4 };
@@ -1225,15 +1227,22 @@ function GoalSettings({
     value: sleepMaxHM,
     onChange: e => setSleepMaxHM(e.target.value),
     style: { ...inputStyle, width: "100%" }
-  })), /*#__PURE__*/React.createElement("div", {
-    style: { gridColumn: "1 / -1" }
-  }, /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: goalLabelStyle
-  }, "수분 목표(L)"), /*#__PURE__*/React.createElement("input", {
+  }, "💧 수분(L)", /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, fontWeight: 500, marginLeft: 4 } }, "물+차")), /*#__PURE__*/React.createElement("input", {
     type: "number",
     step: "0.1",
     value: water,
     onChange: e => setWater(Number(e.target.value)),
+    style: { ...inputStyle, width: "100%" }
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: goalLabelStyle
+  }, "🥝 건강음료(잔/일)"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    step: "1",
+    min: "0",
+    value: healthDrink,
+    onChange: e => setHealthDrink(Number(e.target.value)),
     style: { ...inputStyle, width: "100%" }
   }))), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
@@ -1244,6 +1253,7 @@ function GoalSettings({
         restGoalHours: parseHM(restHM) / 60,
         fastingGoalHours: parseHM(fastHM) / 60,
         hydrationGoalL: water,
+        healthDrinkGoal: healthDrink,
         sleepGoalMinH: parseHM(sleepMinHM) / 60,
         sleepGoalMaxH: parseHM(sleepMaxHM) / 60
       });
@@ -1330,6 +1340,7 @@ function QuickLogForm({
   const [lotus, setLotus] = useState(false);
   const [emotion, setEmotion] = useState(null);
   const [hydType, setHydType] = useState("water");
+  const [cups, setCups] = useState(1);
   const def = EVENT_TYPES[type];
   const isTimed = type === "exercise" || type === "meditation" || type === "activity" || type === "rest";
   const computedDuration = isTimed ? Math.max(0, toMin(endTime) - toMin(startTime)) : null;
@@ -1348,7 +1359,8 @@ function QuickLogForm({
       time,
       hydType,
       label,
-      amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0
+      amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0,
+      cups: hydType === "health" ? (Number(cups) || 1) : undefined
     });else if (type === "emotion") onSubmit({
       time,
       name: emotion,
@@ -1408,7 +1420,7 @@ function QuickLogForm({
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time, onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75, flexShrink: 0 }
+    style: { ...inputStyle, width: 62, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
     type: "text", value: label, onChange: e => setLabel(e.target.value),
     placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : "재료 (선택)",
@@ -1417,8 +1429,14 @@ function QuickLogForm({
     style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "number", value: amountMl, onChange: e => setAmountMl(e.target.value),
-    placeholder: "250", style: { ...inputStyle, width: 58 }
-  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")))), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    placeholder: "250", style: { ...inputStyle, width: 52 }
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")),
+  hydType === "health" && /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number", value: cups, onChange: e => setCups(e.target.value),
+    min: "1", style: { ...inputStyle, width: 42 }
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "잔")))), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 8,
@@ -1428,7 +1446,7 @@ function QuickLogForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75, flexShrink: 0 }
+    style: { ...inputStyle, width: 62, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: label,
@@ -1538,7 +1556,7 @@ function QuickLogForm({
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time, onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75, flexShrink: 0 }
+    style: { ...inputStyle, width: 62, flexShrink: 0 }
   })),
   /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1580,7 +1598,7 @@ function QuickLogForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75 }
+    style: { ...inputStyle, width: 62 }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
@@ -1737,7 +1755,7 @@ function EventRow({
     } else {
       const hydIcon = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]).icon : null;
       const hydLabel = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]).label : null;
-      const extra = ev.type === "meal" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` : ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
+      const extra = ev.type === "meal" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` : ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
       content = /*#__PURE__*/React.createElement(React.Fragment, null, ev.type === "hydration" && hydIcon ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 13 } }, hydIcon) : /*#__PURE__*/React.createElement(Icon, {
         size: 13,
         color: def.color,
@@ -1795,6 +1813,7 @@ function EventEditForm({
   const [lotus, setLotus] = useState(ev.lotus || false);
   const [emotion, setEmotion] = useState(ev.name || null);
   const [hydType, setHydType] = useState(ev.hydType || "water");
+  const [cups, setCups] = useState(ev.cups || 1);
   const computedDuration = isTimed ? Math.max(0, toMin(endTime) - toMin(time)) : null;
   const save = () => {
     if (isTimed) onSave({
@@ -1811,7 +1830,8 @@ function EventEditForm({
       time,
       hydType,
       label,
-      amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0
+      amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0,
+      cups: hydType === "health" ? (Number(cups) || 1) : undefined
     });else if (ev.type === "emotion") onSave({
       time,
       name: emotion,
@@ -1863,7 +1883,7 @@ function EventEditForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75, flexShrink: 0 }
+    style: { ...inputStyle, width: 62, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: label,
@@ -1911,7 +1931,7 @@ function EventEditForm({
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time, onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75, flexShrink: 0 }
+    style: { ...inputStyle, width: 62, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
     type: "text", value: label, onChange: e => setLabel(e.target.value),
     placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : "재료 (선택)",
@@ -1920,8 +1940,14 @@ function EventEditForm({
     style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "number", value: amountMl, onChange: e => setAmountMl(e.target.value),
-    placeholder: "250", style: { ...inputStyle, width: 58 }
-  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    placeholder: "250", style: { ...inputStyle, width: 52 }
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")),
+  hydType === "health" && /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number", value: cups, onChange: e => setCups(e.target.value),
+    min: "1", style: { ...inputStyle, width: 42 }
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "잔")))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -1984,7 +2010,7 @@ function EventEditForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75 }
+    style: { ...inputStyle, width: 62 }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -2023,7 +2049,7 @@ function EventEditForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: { ...inputStyle, width: 75 }
+    style: { ...inputStyle, width: 62 }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
@@ -3503,7 +3529,8 @@ const inputStyle = {
   fontSize: 12.5,
   fontFamily: "inherit",
   background: "#ffffffcc",
-  boxSizing: "border-box"
+  boxSizing: "border-box",
+  textAlign: "center"
 };
 const quickBtn = {
   display: "flex",
