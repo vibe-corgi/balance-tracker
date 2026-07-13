@@ -2449,7 +2449,14 @@ function TodayView({
   const prevMealsSorted = prevEntry ? prevEntry.events.filter(e => e.type === "meal").map(e => e.time).sort() : [];
   const prevLastMealTime = prevMealsSorted.length ? prevMealsSorted[prevMealsSorted.length - 1] : null;
   const isFirstMealToday = entry.events.filter(e => e.type === "meal").length === 0;
-  const sortKey = e => e.type === "wake" ? -1 : e.type === "bed" ? 1e9 : toMin(e.time);
+  const wakeMin = entry.morning?.wakeTime ? toMin(entry.morning.wakeTime) : null;
+  const sortKey = e => {
+    if (e.type === "bed") return 1e9;
+    const m = toMin(e.time);
+    if (e.type === "wake") return m;
+    if (wakeMin != null && m < wakeMin) return m;
+    return m;
+  };
   const timelineEvents = [...(entry.morning?.wakeTime ? [{
     id: "wake",
     type: "wake",
