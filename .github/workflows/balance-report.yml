@@ -1,0 +1,102 @@
+name: BALANCE Telegram Report
+
+on:
+  schedule:
+    # Daily 6AM KST = 21:00 UTC (previous day)
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+    inputs:
+      report_type:
+        description: 'Report type'
+        required: true
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - weekly
+          - monthly
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine report types to send
+        id: check
+        run: |
+          KST_DATE=$(TZ=Asia/Seoul date +%Y-%m-%d)
+          KST_DOW=$(TZ=Asia/Seoul date +%u)  # 1=Mon 7=Sun
+          KST_DAY=$(TZ=Asia/Seoul date +%d)
+
+          echo "kst_date=$KST_DATE" >> $GITHUB_OUTPUT
+          echo "send_daily=true" >> $GITHUB_OUTPUT
+
+          if [ "$KST_DOW" = "1" ]; then
+            echo "send_weekly=true" >> $GITHUB_OUTPUT
+          else
+            echo "send_weekly=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [ "$KST_DAY" = "01" ]; then
+            echo "send_monthly=true" >> $GITHUB_OUTPUT
+          else
+            echo "send_monthly=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Manual trigger override
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "send_daily=false" >> $GITHUB_OUTPUT
+            echo "send_weekly=false" >> $GITHUB_OUTPUT
+            echo "send_monthly=false" >> $GITHUB_OUTPUT
+            echo "send_${{ inputs.report_type }}=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Firebase key
+        run: |
+          echo '${{ secrets.FIREBASE_KEY_JSON }}' > /tmp/firebase-key.json
+          printf '%b' "$(awk -F'"' '/"private_key"/{print $4}' /tmp/firebase-key.json)" > /tmp/firebase-key.pem
+
+      - name: Get Firestore access token
+        id: auth
+        run: |
+          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          CE="firebase-adminsdk-fbsvc@balance-408f1.iam.gserviceaccount.com"
+          NOW=$(date +%s); EXP=$((NOW + 3600))
+          H=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+          C=$(printf '{"iss":"%s","scope":"https://www.googleapis.com/auth/datastore","aud":"https://oauth2.googleapis.com/token","iat":%d,"exp":%d}' "$CE" "$NOW" "$EXP" | b64url)
+          U="$H.$C"
+          S=$(printf '%s' "$U" | openssl dgst -sha256 -sign /tmp/firebase-key.pem -binary | b64url)
+          TK=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+            -d "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=$U.$S" \
+            | jq -r '.access_token')
+          echo "::add-mask::$TK"
+          echo "token=$TK" >> $GITHUB_OUTPUT
+
+      - name: Send daily report
+        if: steps.check.outputs.send_daily == 'true'
+        env:
+          FB_TOKEN: ${{ steps.auth.outputs.token }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: bash .github/scripts/daily-report.sh
+
+      - name: Send weekly report
+        if: steps.check.outputs.send_weekly == 'true'
+        env:
+          FB_TOKEN: ${{ steps.auth.outputs.token }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: bash .github/scripts/weekly-report.sh
+
+      - name: Send monthly report
+        if: steps.check.outputs.send_monthly == 'true'
+        env:
+          FB_TOKEN: ${{ steps.auth.outputs.token }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: bash .github/scripts/monthly-report.sh
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/firebase-key.json /tmp/firebase-key.pem
