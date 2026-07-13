@@ -383,11 +383,25 @@ const EMOTIONS = {
   }
 };
 const EMOTION_NAMES = Object.keys(EMOTIONS);
+const HydIconWater = () => React.createElement('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', style: { display: 'inline-block' } },
+  React.createElement('path', { d: 'M6 7h12l-1.5 14h-9L6 7z', fill: '#7DD3FC', stroke: '#1a1a1a', strokeWidth: '1', strokeLinejoin: 'round' }),
+  React.createElement('path', { d: 'M5 7h14', stroke: '#1a1a1a', strokeWidth: '1.2', strokeLinecap: 'round' }),
+  React.createElement('path', { d: 'M18 10h2a1.5 1.5 0 0 1 0 3h-2', stroke: '#1a1a1a', strokeWidth: '1', strokeLinecap: 'round' }),
+  React.createElement('path', { d: 'M8 12 Q12 11 16 12', stroke: '#BAE6FD', strokeWidth: '1', strokeLinecap: 'round' })
+);
+const HydIconFrap = () => React.createElement('svg', { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', style: { display: 'inline-block' } },
+  React.createElement('path', { d: 'M8 10h8l-1 11h-6L8 10z', fill: '#D2B48C', stroke: '#1a1a1a', strokeWidth: '1', strokeLinejoin: 'round' }),
+  React.createElement('path', { d: 'M7 8h10v2H7z', fill: '#8B4513', stroke: '#1a1a1a', strokeWidth: '0.8' }),
+  React.createElement('ellipse', { cx: '12', cy: '7', rx: '4.5', ry: '3', fill: '#FFF8DC', stroke: '#1a1a1a', strokeWidth: '0.8' }),
+  React.createElement('ellipse', { cx: '12', cy: '6', rx: '3', ry: '2', fill: '#FFFDE7' }),
+  React.createElement('line', { x1: '12', y1: '4', x2: '12', y2: '1', stroke: '#8B4513', strokeWidth: '1.2', strokeLinecap: 'round' }),
+  React.createElement('path', { d: 'M9.5 14h5', stroke: '#A0522D', strokeWidth: '0.8', strokeLinecap: 'round' })
+);
 const HYDRATION_TYPES = [
-  { key: "water", icon: "💧", label: "물" },
+  { key: "water", icon: null, comp: HydIconWater, label: "물" },
   { key: "tea", icon: "🍵", label: "차" },
   { key: "coffee", icon: "☕", label: "커피" },
-  { key: "commercial", icon: "🥤", label: "시판음료" },
+  { key: "commercial", icon: null, comp: HydIconFrap, label: "시판음료" },
   { key: "health", icon: "🥝", label: "건강음료" }
 ];
 const EVENT_TYPES = {
@@ -1114,20 +1128,19 @@ function CheckinCard({
       color: bedNextDay ? "#fff" : INK
     }
   }, "+다음날 새벽"))), showPeriod && /*#__PURE__*/React.createElement("div", {
-    style: { marginTop: 10 }
+    style: { marginTop: 10, display: "flex", justifyContent: "flex-end" }
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: () => setPeriod(v => !v),
     style: {
-      width: "100%",
-      padding: "10px 0",
-      border: `2px solid ${period ? "#E74C8B" : INK}`,
-      borderRadius: 2,
+      padding: "6px 14px",
+      border: `1.5px solid ${period ? "#E74C8B" : "#c0b0d0"}`,
+      borderRadius: 20,
       cursor: "pointer",
-      fontSize: 12.5,
-      fontWeight: 700,
-      background: period ? "#E74C8B" : "#EFE3FA",
-      color: period ? "#fff" : INK
+      fontSize: 11,
+      fontWeight: 600,
+      background: period ? "#E74C8B" : "#f5f0fa",
+      color: period ? "#fff" : "#8a70a0"
     }
   }, "🩸 생리중")), /*#__PURE__*/React.createElement("textarea", {
     value: note,
@@ -1413,7 +1426,7 @@ function QuickLogForm({
       borderRadius: 2, background: hydType === ht.key ? "#ffffffcc" : "transparent",
       cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2
     }
-  }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 16 } }, ht.icon),
+  }, ht.comp ? /*#__PURE__*/React.createElement(ht.comp) : /*#__PURE__*/React.createElement("span", { style: { fontSize: 16 } }, ht.icon),
   /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: INK } }, ht.label)))),
   /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }
@@ -1428,7 +1441,7 @@ function QuickLogForm({
   }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
   }, /*#__PURE__*/React.createElement("input", {
-    type: "number", value: amountMl, onChange: e => setAmountMl(e.target.value),
+    type: "text", inputMode: "numeric", value: amountMl, onChange: e => setAmountMl(e.target.value),
     placeholder: "250", style: { ...inputStyle, width: 46, padding: "8px 2px" }
   }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")),
   hydType === "health" && /*#__PURE__*/React.createElement("div", {
@@ -1753,10 +1766,12 @@ function EventRow({
         cell: 1.6
       }), /*#__PURE__*/React.createElement("span", null, "감정 · ", ev.name, ev.memo ? ` · ${ev.memo}` : ""));
     } else {
-      const hydIcon = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]).icon : null;
-      const hydLabel = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]).label : null;
+      const hydDef = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]) : null;
+      const hydIcon = hydDef?.icon;
+      const hydComp = hydDef?.comp;
+      const hydLabel = hydDef?.label;
       const extra = ev.type === "meal" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` : ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
-      content = /*#__PURE__*/React.createElement(React.Fragment, null, ev.type === "hydration" && hydIcon ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 13 } }, hydIcon) : /*#__PURE__*/React.createElement(Icon, {
+      content = /*#__PURE__*/React.createElement(React.Fragment, null, ev.type === "hydration" && hydComp ? /*#__PURE__*/React.createElement(hydComp) : ev.type === "hydration" && hydIcon ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 13 } }, hydIcon) : /*#__PURE__*/React.createElement(Icon, {
         size: 13,
         color: def.color,
         strokeWidth: 2
@@ -1924,7 +1939,7 @@ function EventEditForm({
       borderRadius: 2, background: hydType === ht.key ? "#ffffffcc" : "transparent",
       cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2
     }
-  }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 16 } }, ht.icon),
+  }, ht.comp ? /*#__PURE__*/React.createElement(ht.comp) : /*#__PURE__*/React.createElement("span", { style: { fontSize: 16 } }, ht.icon),
   /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: INK } }, ht.label)))),
   /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }
@@ -1939,7 +1954,7 @@ function EventEditForm({
   }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
   }, /*#__PURE__*/React.createElement("input", {
-    type: "number", value: amountMl, onChange: e => setAmountMl(e.target.value),
+    type: "text", inputMode: "numeric", value: amountMl, onChange: e => setAmountMl(e.target.value),
     placeholder: "250", style: { ...inputStyle, width: 46, padding: "8px 2px" }
   }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")),
   hydType === "health" && /*#__PURE__*/React.createElement("div", {
