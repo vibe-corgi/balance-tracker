@@ -383,6 +383,13 @@ const EMOTIONS = {
   }
 };
 const EMOTION_NAMES = Object.keys(EMOTIONS);
+const HYDRATION_TYPES = [
+  { key: "water", icon: "💧", label: "물" },
+  { key: "tea", icon: "🍵", label: "차" },
+  { key: "coffee", icon: "☕", label: "커피" },
+  { key: "commercial", icon: "🥤", label: "시판음료" },
+  { key: "health", icon: "🥝", label: "건강음료" }
+];
 const EVENT_TYPES = {
   meal: {
     label: "식사",
@@ -1322,6 +1329,7 @@ function QuickLogForm({
   const [mealFeel, setMealFeel] = useState(null);
   const [lotus, setLotus] = useState(false);
   const [emotion, setEmotion] = useState(null);
+  const [hydType, setHydType] = useState("water");
   const def = EVENT_TYPES[type];
   const isTimed = type === "exercise" || type === "meditation" || type === "activity" || type === "rest";
   const computedDuration = isTimed ? Math.max(0, toMin(endTime) - toMin(startTime)) : null;
@@ -1338,8 +1346,9 @@ function QuickLogForm({
       feel: mealFeel
     });else if (type === "hydration") onSubmit({
       time,
+      hydType,
       label,
-      amountMl: Number(amountMl) || 0
+      amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0
     });else if (type === "emotion") onSubmit({
       time,
       name: emotion,
@@ -1381,37 +1390,35 @@ function QuickLogForm({
   }, /*#__PURE__*/React.createElement(X, {
     size: 16,
     color: INK
-  }))), type === "hydration" && /*#__PURE__*/React.createElement("div", {
+  }))), type === "hydration" && /*#__PURE__*/React.createElement("div", null,
+  /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 6, marginBottom: 10 }
+  }, HYDRATION_TYPES.map(ht => /*#__PURE__*/React.createElement("button", {
+    key: ht.key,
+    onClick: () => setHydType(ht.key),
     style: {
-      display: "flex",
-      gap: 8,
-      marginBottom: 10
+      flex: 1, padding: "6px 0", border: `2px solid ${hydType === ht.key ? INK : "transparent"}`,
+      borderRadius: 2, background: hydType === ht.key ? "#ffffffcc" : "transparent",
+      cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2
     }
+  }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 16 } }, ht.icon),
+  /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: INK } }, ht.label)))),
+  /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8, marginBottom: 10 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
-    value: time,
-    onChange: e => setTime(e.target.value),
-    style: inputStyle
+    value: time, onChange: e => setTime(e.target.value),
+    style: { ...inputStyle, width: 75, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: label,
-    onChange: e => setLabel(e.target.value),
-    placeholder: "무엇을 (물, 차, 커피 등)",
-    style: {
-      ...inputStyle,
-      flex: 1
-    }
-  }), /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 2 } },
-    /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: amountMl,
-    onChange: e => setAmountMl(e.target.value),
-    placeholder: "250",
-    style: {
-      ...inputStyle,
-      width: 65
-    }
-  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml"))), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    type: "text", value: label, onChange: e => setLabel(e.target.value),
+    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : "재료 (선택)",
+    style: { ...inputStyle, flex: 1, minWidth: 0 }
+  }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number", value: amountMl, onChange: e => setAmountMl(e.target.value),
+    placeholder: "250", style: { ...inputStyle, width: 58 }
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")))), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 8,
@@ -1421,7 +1428,7 @@ function QuickLogForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: inputStyle
+    style: { ...inputStyle, width: 75, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: label,
@@ -1429,7 +1436,8 @@ function QuickLogForm({
     placeholder: "무엇을 (간단히)",
     style: {
       ...inputStyle,
-      flex: 1
+      flex: 1,
+      minWidth: 0
     }
   })), fastingHint && fastingHint.isFirstMealToday && fastingHint.prevLastMealTime && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1453,7 +1461,7 @@ function QuickLogForm({
   }, "몸에 어땠나요? (나중에 다시 체크해도 좋아요)"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 8
+      gap: 6
     }
   }, ["아주 잘 맞음", "잘 맞음", "보통", "안 맞음", "아주 안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
@@ -1463,7 +1471,7 @@ function QuickLogForm({
       padding: "8px 0",
       border: `2px solid ${INK}`,
       borderRadius: 2,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: 700,
       background: mealFeel === f ? INK : "#ffffffaa",
       color: mealFeel === f ? "#fff" : INK,
@@ -1473,31 +1481,32 @@ function QuickLogForm({
     style: {
       display: "flex",
       alignItems: "center",
-      gap: 8,
+      gap: 6,
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: startTime,
     onChange: e => setStartTime(e.target.value),
-    style: inputStyle
+    style: { ...inputStyle, flex: 1, minWidth: 0 }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 12,
       color: INK,
-      fontWeight: 700
+      fontWeight: 700,
+      flexShrink: 0
     }
   }, "~"), /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: endTime,
     onChange: e => setEndTime(e.target.value),
-    style: inputStyle
+    style: { ...inputStyle, flex: 1, minWidth: 0 }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
       color: "#5B5580",
       fontWeight: 700,
-      marginLeft: "auto"
+      flexShrink: 0
     }
   }, fmtHM(computedDuration))), /*#__PURE__*/React.createElement("textarea", {
     value: memo,
@@ -1523,10 +1532,18 @@ function QuickLogForm({
     type: "checkbox",
     checked: lotus,
     onChange: e => setLotus(e.target.checked)
-  }), " 결가부좌 자세로")), type === "bathroom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), " 결가부좌 자세로")), type === "bathroom" && /*#__PURE__*/React.createElement("div", null,
+  /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8, marginBottom: 10 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text", inputMode: "numeric", placeholder: "00:00",
+    value: time, onChange: e => setTime(e.target.value),
+    style: { ...inputStyle, width: 75, flexShrink: 0 }
+  })),
+  /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 8,
+      gap: 6,
       marginBottom: 10
     }
   }, ["아주 편함", "편함", "보통", "불편", "아주 불편"].map(f => /*#__PURE__*/React.createElement("button", {
@@ -1537,7 +1554,7 @@ function QuickLogForm({
       padding: "8px 0",
       border: `2px solid ${INK}`,
       borderRadius: 2,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: 700,
       background: feel === f ? INK : "#ffffffaa",
       color: feel === f ? "#fff" : INK,
@@ -1563,7 +1580,7 @@ function QuickLogForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: inputStyle
+    style: { ...inputStyle, width: 75 }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
@@ -1718,12 +1735,14 @@ function EventRow({
         cell: 1.6
       }), /*#__PURE__*/React.createElement("span", null, "감정 · ", ev.name, ev.memo ? ` · ${ev.memo}` : ""));
     } else {
-      const extra = ev.type === "meal" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` : ev.type === "hydration" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
-      content = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Icon, {
+      const hydIcon = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]).icon : null;
+      const hydLabel = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]).label : null;
+      const extra = ev.type === "meal" ? `${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` : ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
+      content = /*#__PURE__*/React.createElement(React.Fragment, null, ev.type === "hydration" && hydIcon ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 13 } }, hydIcon) : /*#__PURE__*/React.createElement(Icon, {
         size: 13,
         color: def.color,
         strokeWidth: 2
-      }), /*#__PURE__*/React.createElement("span", null, def.label, extra));
+      }), /*#__PURE__*/React.createElement("span", null, ev.type === "hydration" ? "" : def.label, extra));
     }
     return /*#__PURE__*/React.createElement("button", {
       onClick: () => setEditing(true),
@@ -1775,6 +1794,7 @@ function EventEditForm({
   const [feel, setFeel] = useState(ev.feel || null);
   const [lotus, setLotus] = useState(ev.lotus || false);
   const [emotion, setEmotion] = useState(ev.name || null);
+  const [hydType, setHydType] = useState(ev.hydType || "water");
   const computedDuration = isTimed ? Math.max(0, toMin(endTime) - toMin(time)) : null;
   const save = () => {
     if (isTimed) onSave({
@@ -1789,8 +1809,9 @@ function EventEditForm({
       feel
     });else if (ev.type === "hydration") onSave({
       time,
+      hydType,
       label,
-      amountMl: Number(amountMl) || 0
+      amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0
     });else if (ev.type === "emotion") onSave({
       time,
       name: emotion,
@@ -1842,7 +1863,7 @@ function EventEditForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: inputStyle
+    style: { ...inputStyle, width: 75, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: label,
@@ -1850,12 +1871,13 @@ function EventEditForm({
     placeholder: "무엇을",
     style: {
       ...inputStyle,
-      flex: 1
+      flex: 1,
+      minWidth: 0
     }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 8
+      gap: 6
     }
   }, ["아주 잘 맞음", "잘 맞음", "보통", "안 맞음", "아주 안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
@@ -1865,71 +1887,70 @@ function EventEditForm({
       padding: "7px 0",
       border: `2px solid ${INK}`,
       borderRadius: 2,
-      fontSize: 11.5,
+      fontSize: 11,
       fontWeight: 700,
       background: feel === f ? INK : "#ffffffaa",
       color: feel === f ? "#fff" : INK,
       cursor: "pointer"
     }
-  }, f)))), ev.type === "hydration" && /*#__PURE__*/React.createElement("div", {
+  }, f)))), ev.type === "hydration" && /*#__PURE__*/React.createElement("div", null,
+  /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 6, marginBottom: 8 }
+  }, HYDRATION_TYPES.map(ht => /*#__PURE__*/React.createElement("button", {
+    key: ht.key,
+    onClick: () => setHydType(ht.key),
     style: {
-      display: "flex",
-      gap: 8,
-      marginBottom: 8
+      flex: 1, padding: "6px 0", border: `2px solid ${hydType === ht.key ? INK : "transparent"}`,
+      borderRadius: 2, background: hydType === ht.key ? "#ffffffcc" : "transparent",
+      cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2
     }
+  }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 16 } }, ht.icon),
+  /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: INK } }, ht.label)))),
+  /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8, marginBottom: 8 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
-    value: time,
-    onChange: e => setTime(e.target.value),
-    style: inputStyle
+    value: time, onChange: e => setTime(e.target.value),
+    style: { ...inputStyle, width: 75, flexShrink: 0 }
   }), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: label,
-    onChange: e => setLabel(e.target.value),
-    placeholder: "무엇을",
-    style: {
-      ...inputStyle,
-      flex: 1
-    }
-  }), /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 2 } },
-    /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    value: amountMl,
-    onChange: e => setAmountMl(e.target.value),
-    placeholder: "250",
-    style: {
-      ...inputStyle,
-      width: 65
-    }
-  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml"))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    type: "text", value: label, onChange: e => setLabel(e.target.value),
+    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : "재료 (선택)",
+    style: { ...inputStyle, flex: 1, minWidth: 0 }
+  }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number", value: amountMl, onChange: e => setAmountMl(e.target.value),
+    placeholder: "250", style: { ...inputStyle, width: 58 }
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700 } }, "ml")))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
-      gap: 8,
+      gap: 6,
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: inputStyle
+    style: { ...inputStyle, flex: 1, minWidth: 0 }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 12,
       color: INK,
-      fontWeight: 700
+      fontWeight: 700,
+      flexShrink: 0
     }
   }, "~"), /*#__PURE__*/React.createElement("input", {
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: endTime,
     onChange: e => setEndTime(e.target.value),
-    style: inputStyle
+    style: { ...inputStyle, flex: 1, minWidth: 0 }
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11,
       color: "#5B5580",
       fontWeight: 700,
-      marginLeft: "auto"
+      flexShrink: 0
     }
   }, fmtHM(computedDuration))), /*#__PURE__*/React.createElement("textarea", {
     value: memo,
@@ -1963,14 +1984,11 @@ function EventEditForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: {
-      ...inputStyle,
-      width: "100%"
-    }
+    style: { ...inputStyle, width: 75 }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      gap: 8,
+      gap: 6,
       marginBottom: 8
     }
   }, ["아주 편함", "편함", "보통", "불편", "아주 불편"].map(f => /*#__PURE__*/React.createElement("button", {
@@ -1981,7 +1999,7 @@ function EventEditForm({
       padding: "7px 0",
       border: `2px solid ${INK}`,
       borderRadius: 2,
-      fontSize: 11.5,
+      fontSize: 11,
       fontWeight: 700,
       background: feel === f ? INK : "#ffffffaa",
       color: feel === f ? "#fff" : INK,
@@ -2005,10 +2023,7 @@ function EventEditForm({
     type: "text", inputMode: "numeric", placeholder: "00:00",
     value: time,
     onChange: e => setTime(e.target.value),
-    style: {
-      ...inputStyle,
-      width: "100%"
-    }
+    style: { ...inputStyle, width: 75 }
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
