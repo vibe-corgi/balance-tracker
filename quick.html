@@ -58,6 +58,8 @@ const CATS = [
   { id:"hydration",  icon:"💧", label:"수분",        color:"#29B6F6" },
   { id:"bathroom",   icon:"🚽", label:"화장실",      color:"#8D6E63" },
   { id:"emotion",    icon:"💭", label:"감정",        color:"#EF5350" },
+  { id:"activity",   icon:"📖", label:"활동",        color:"#7C6BC7" },
+  { id:"rest",       icon:"💤", label:"휴식",        color:"#6D7BD9" },
 ];
 // 웹 앱(index.html) EMOTIONS 키 순서와 동일
 const EMOTIONS = [
@@ -509,6 +511,34 @@ function EmotionForm({entry,onSave,onCancel}) {
   );
 }
 
+function ActivityForm({entry,onSave,onCancel}) {
+  const now=nowHM();
+  const [start,setStart]=useState(now);
+  const [end,setEnd]=useState(now);
+  const [memo,setMemo]=useState("");
+  const dur=()=>Math.max(0,toMin(end)-toMin(start));
+  return h(FormWrap,{title:"📖 활동",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"activity",time:start,endTime:end,duration:dur(),memo}]});
+  }},
+    h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
+    h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"독서, 공부, 취미, 산책..."}))
+  );
+}
+
+function RestForm({entry,onSave,onCancel}) {
+  const now=nowHM();
+  const [start,setStart]=useState(now);
+  const [end,setEnd]=useState(now);
+  const [memo,setMemo]=useState("");
+  const dur=()=>Math.max(0,toMin(end)-toMin(start));
+  return h(FormWrap,{title:"💤 휴식",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"rest",time:start,endTime:end,duration:dur(),memo}]});
+  }},
+    h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
+    h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"낮잠, 멍때림, 음악 감상..."}))
+  );
+}
+
 // ── 오늘의 흐름 ────────────────────────────────────────
 function TodayFlow({ entry }) {
   if (!entry) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}}, "오늘 기록이 없어요");
@@ -538,6 +568,8 @@ function TodayFlow({ entry }) {
       else if(item.type==="hydration") text=`수분${item.data.amountMl?` · ${item.data.amountMl}ml`:""}${item.data.cups?` · ${item.data.cups}잔`:""}${item.data.label?` · ${item.data.label}`:""}`;
       else if(item.type==="bathroom") text=`화장실${item.data.feel?` · ${item.data.feel}`:""}`;
       else if(item.type==="emotion") text=`감정 · ${item.data.name||""}${item.data.memo?` · ${item.data.memo}`:""}`;
+      else if(item.type==="activity") text=`활동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
+      else if(item.type==="rest") text=`휴식${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
       else text=cat?.label||item.type;
     }
     return h("div",{key:i,style:{display:"flex",gap:12,paddingBottom:16,alignItems:"flex-start"}},
@@ -690,6 +722,8 @@ function QuickApp() {
     hydration:  h(HydrationForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
     bathroom:   h(BathroomForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
     emotion:    h(EmotionForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
+    activity:   h(ActivityForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
+    rest:       h(RestForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
   };
 
   const [,mo,dd] = today.split("-");
