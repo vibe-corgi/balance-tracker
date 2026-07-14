@@ -869,6 +869,8 @@ function QuickApp() {
   const [editEv,setEditEv]=useState(null);
   const [tab,setTab]=useState("기록");
   const [saveAnim,setSaveAnim]=useState(false);
+  const [recordDate,setRecordDate]=useState(()=>getToday());
+  const [recordEntry,setRecordEntry]=useState(null);
   const today=getToday();
 
   useEffect(()=>auth.onAuthStateChanged(u=>{setUser(u);setLoading(false);}),[]);
@@ -876,31 +878,44 @@ function QuickApp() {
     if(!user)return;
     const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${today}`);
     const unsub=ref.onSnapshot(snap=>{
-      if(snap.exists){try{setEntry(JSON.parse(snap.data().value));}catch{setEntry({date:today,events:[]});}}
-      else setEntry({date:today,morning:null,evening:null,events:[]});
+      const parsed=snap.exists?(() => { try{return JSON.parse(snap.data().value);}catch{return {date:today,events:[]};} })():{date:today,morning:null,evening:null,events:[]};
+      setEntry(parsed);
+      if(recordDate===today) setRecordEntry(parsed);
     });
-    // 어제 데이터 (공복·수면 계산용)
     db.collection("users").doc(user.uid).collection("data").doc(`entry:${getDateStr(1)}`).get()
       .then(snap=>{ if(snap.exists){try{setPrevEntry(JSON.parse(snap.data().value));}catch{}} });
-    // 목표값 (웹과 동일한 Firestore 경로)
     db.collection("users").doc(user.uid).collection("data").doc("settings:goals").get()
       .then(snap=>{ if(snap.exists){try{setGoals({...DEFAULT_GOALS,...JSON.parse(snap.data().value)});}catch{}} });
     return unsub;
   },[user]);
 
+  // recordDate 변경 시 해당 날짜 데이터 로드
+  const changeRecordDate=async(date)=>{
+    setRecordDate(date);
+    setActiveForm(null);
+    setEditEv(null);
+    if(date===today){ setRecordEntry(entry); return; }
+    const snap=await db.collection("users").doc(user.uid).collection("data").doc(`entry:${date}`).get();
+    if(snap.exists){try{setRecordEntry(JSON.parse(snap.data().value));}catch{setRecordEntry({date,events:[]});}}
+    else setRecordEntry({date,morning:null,evening:null,events:[]});
+  };
+
   const saveEntry=async(updated)=>{
-    const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${today}`);
+    const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${recordDate}`);
     await ref.set({value:JSON.stringify(updated)});
+    if(recordDate!==today) setRecordEntry(updated); // 과거날짜는 직접 업데이트
     setSaveAnim(true);
     setActiveForm(null);
     setEditEv(null);
-    setTab("오늘");
+    if(recordDate===today) setTab("오늘");
   };
 
   const deleteEvent=async(evId)=>{
-    const updated={...entry,events:(entry.events||[]).filter(e=>e.id!==evId)};
-    const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${today}`);
+    const base=recordDate===today?entry:recordEntry;
+    const updated={...base,events:(base.events||[]).filter(e=>e.id!==evId)};
+    const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${recordDate}`);
     await ref.set({value:JSON.stringify(updated)});
+    if(recordDate!==today) setRecordEntry(updated);
   };
 
   const openEdit=(formType,ev=null)=>{
@@ -921,7 +936,8 @@ function QuickApp() {
     },"Google로 로그인")
   );
 
-  const formProps={entry,onSave:saveEntry,onCancel:()=>{setActiveForm(null);setEditEv(null);}};
+  const activeEntry=recordDate===today?entry:recordEntry;
+  const formProps={entry:activeEntry,onSave:saveEntry,onCancel:()=>{setActiveForm(null);setEditEv(null);}};
   const FORMS={
     morning:    h(MorningForm,{...formProps}),
     evening:    h(EveningForm,{...formProps}),
@@ -967,7 +983,34 @@ function QuickApp() {
     h("div",{style:{padding:"16px 16px 0"}},
       activeForm
         ? FORMS[activeForm]
-        : tab==="기록" ? h(CategoryGrid,{entry,onSelect:setActiveForm})
+        : tab==="기록" ? h("div",null,
+            // 날짜 선택 바
+            h("div",{style:{
+              display:"flex",alignItems:"center",justifyContent:"space-between",
+              marginBottom:14,
+              background:"rgba(255,255,255,0.65)",border:`1.5px solid ${BDR}`,
+              borderRadius:12,padding:"8px 4px",backdropFilter:"blur(8px)",
+            }},
+              h("button",{
+                onClick:()=>{ const d=new Date(recordDate); d.setDate(d.getDate()-1); changeRecordDate(d.toISOString().slice(0,10)); },
+                style:{background:"none",border:"none",fontSize:20,cursor:"pointer",padding:"0 12px",color:PU,fontWeight:900}
+              },"‹"),
+              h("div",{style:{textAlign:"center"}},
+                h("div",{style:{fontSize:14,fontWeight:800,color:INK}},
+                  recordDate===today?"오늘"
+                  :recordDate===getDateStr(1)?"어제"
+                  :fmtDate(recordDate)
+                ),
+                recordDate!==today && h("div",{style:{fontSize:11,color:TXT2,marginTop:1}},recordDate)
+              ),
+              h("button",{
+                onClick:()=>{ if(recordDate>=today)return; const d=new Date(recordDate); d.setDate(d.getDate()+1); changeRecordDate(d.toISOString().slice(0,10)); },
+                style:{background:"none",border:"none",fontSize:20,cursor:"pointer",padding:"0 12px",
+                  color:recordDate>=today?"rgba(155,111,199,0.25)":PU,fontWeight:900}
+              },"›")
+            ),
+            h(CategoryGrid,{entry:activeEntry,onSelect:setActiveForm})
+          )
         : tab==="오늘" ? h(TodayFlow,{
             entry,
             prevEntry,
