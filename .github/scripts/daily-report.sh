@@ -6,8 +6,13 @@ PROJECT="balance-408f1"
 BASE="https://firestore.googleapis.com/v1/projects/$PROJECT/databases/(default)/documents/users/$FUID/data"
 
 get_entry() {
-  local raw=$(curl -s "$BASE/entry:$1" -H "Authorization: Bearer $FB_TOKEN")
-  echo "$raw" | jq -r '.fields.value.stringValue // empty' 2>/dev/null
+  local encoded_key=$(echo "entry:$1" | sed 's/:/%3A/g')
+  local raw=$(curl -s "$BASE/$encoded_key" -H "Authorization: Bearer $FB_TOKEN")
+  local result=$(echo "$raw" | jq -r '.fields.value.stringValue // empty' 2>/dev/null)
+  if [ -z "$result" ]; then
+    echo "[DEBUG] No data for $1. Raw response: $(echo "$raw" | head -c 200)" >&2
+  fi
+  echo "$result"
 }
 
 send_telegram() {
