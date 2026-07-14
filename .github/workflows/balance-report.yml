@@ -55,7 +55,7 @@ jobs:
       - name: Setup Firebase key
         run: |
           echo '${{ secrets.FIREBASE_KEY_JSON }}' > /tmp/firebase-key.json
-          printf '%b' "$(awk -F'"' '/"private_key"/{print $4}' /tmp/firebase-key.json)" > /tmp/firebase-key.pem
+          jq -r '.private_key' /tmp/firebase-key.json > /tmp/firebase-key.pem
 
       - name: Get Firestore access token
         id: auth
