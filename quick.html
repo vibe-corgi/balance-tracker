@@ -239,18 +239,15 @@ function computeQuickScore(entry, prevEntry, goals = DEFAULT_GOALS) {
 }
 
 // ── 헬퍼 ─────────────────────────────────────────────────
+// UTC+9 직접 계산 (toLocaleString → new Date() 파싱은 브라우저마다 결과 다름)
 function getToday() {
-  const d = new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));
-  return d.toISOString().slice(0,10);
+  return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
 }
 function getDateStr(offset=0) {
-  const d = new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));
-  d.setDate(d.getDate()-offset);
-  return d.toISOString().slice(0,10);
+  return new Date(Date.now() + 9*3600*1000 - offset*86400*1000).toISOString().slice(0,10);
 }
 function nowHM() {
-  const d = new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));
-  return d.toTimeString().slice(0,5);
+  return new Date(Date.now() + 9*3600*1000).toISOString().slice(11,16);
 }
 function uid6() { return Date.now().toString(36).slice(-6)+Math.random().toString(36).slice(-3); }
 function fmtDate(s) { const [,m,d]=s.split("-"); return `${+m}월 ${+d}일`; }
@@ -952,6 +949,12 @@ function QuickApp() {
   };
 
   const [,mo,dd]=today.split("-");
+  const showDateNav = tab==="기록" && !activeForm;
+  const dispDate = showDateNav ? recordDate : today;
+  const [,dMo,dDd] = dispDate.split("-");
+  const prevDay=()=>{ const d=new Date(recordDate+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()-1); changeRecordDate(d.toISOString().slice(0,10)); };
+  const nextDay=()=>{ if(recordDate>=today)return; const d=new Date(recordDate+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+1); changeRecordDate(d.toISOString().slice(0,10)); };
+  const dateLabel = dispDate===today?"오늘":dispDate===getDateStr(1)?"어제":`${+dMo}월 ${+dDd}일`;
   const TABS=[
     {key:"기록",icon:"📝"},
     {key:"오늘",icon:"📋"},
@@ -964,13 +967,25 @@ function QuickApp() {
 
     // 헤더
     h("div",{style:{
-      padding:"20px 16px 14px",
+      padding:"16px 16px 12px",
       borderBottom:`1px solid ${BDR}`,
       display:"flex", alignItems:"center", justifyContent:"space-between",
     }},
       h("div",null,
-        h("div",{style:{...PF,fontSize:10,color:PU,letterSpacing:1,marginBottom:3}},"BALANCE"),
-        h("div",{style:{fontSize:16,fontWeight:800,color:INK}},`${+mo}월 ${+dd}일`)
+        h("div",{style:{...PF,fontSize:10,color:PU,letterSpacing:1,marginBottom:4}},"BALANCE"),
+        h("div",{style:{display:"flex",alignItems:"center",gap:4}},
+          showDateNav && h("button",{onClick:prevDay,style:{
+            background:"none",border:"none",color:PU,fontSize:18,fontWeight:900,
+            cursor:"pointer",padding:"0 4px 0 0",lineHeight:1,
+          }},"◀"),
+          h("span",{style:{fontSize:16,fontWeight:800,color:INK}},
+            showDateNav ? dateLabel : `${+mo}월 ${+dd}일`
+          ),
+          showDateNav && recordDate!==today && h("button",{onClick:nextDay,style:{
+            background:"none",border:"none",color:PU,fontSize:18,fontWeight:900,
+            cursor:"pointer",padding:"0 0 0 4px",lineHeight:1,
+          }},"▶")
+        )
       ),
       h("a",{href:"index.html",style:{
         fontSize:11,color:TXT2,textDecoration:"none",
@@ -983,34 +998,7 @@ function QuickApp() {
     h("div",{style:{padding:"16px 16px 0"}},
       activeForm
         ? FORMS[activeForm]
-        : tab==="기록" ? h("div",null,
-            // 날짜 선택 바
-            h("div",{style:{
-              display:"flex",alignItems:"center",justifyContent:"space-between",
-              marginBottom:14,
-              background:"rgba(255,255,255,0.65)",border:`1.5px solid ${BDR}`,
-              borderRadius:12,padding:"8px 4px",backdropFilter:"blur(8px)",
-            }},
-              h("button",{
-                onClick:()=>{ const d=new Date(recordDate); d.setDate(d.getDate()-1); changeRecordDate(d.toISOString().slice(0,10)); },
-                style:{background:"none",border:"none",fontSize:20,cursor:"pointer",padding:"0 12px",color:PU,fontWeight:900}
-              },"‹"),
-              h("div",{style:{textAlign:"center"}},
-                h("div",{style:{fontSize:14,fontWeight:800,color:INK}},
-                  recordDate===today?"오늘"
-                  :recordDate===getDateStr(1)?"어제"
-                  :fmtDate(recordDate)
-                ),
-                recordDate!==today && h("div",{style:{fontSize:11,color:TXT2,marginTop:1}},recordDate)
-              ),
-              h("button",{
-                onClick:()=>{ if(recordDate>=today)return; const d=new Date(recordDate); d.setDate(d.getDate()+1); changeRecordDate(d.toISOString().slice(0,10)); },
-                style:{background:"none",border:"none",fontSize:20,cursor:"pointer",padding:"0 12px",
-                  color:recordDate>=today?"rgba(155,111,199,0.25)":PU,fontWeight:900}
-              },"›")
-            ),
-            h(CategoryGrid,{entry:activeEntry,onSelect:setActiveForm})
-          )
+        : tab==="기록" ? h(CategoryGrid,{entry:activeEntry,onSelect:setActiveForm})
         : tab==="오늘" ? h(TodayFlow,{
             entry,
             prevEntry,
