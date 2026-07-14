@@ -106,7 +106,10 @@ const EMOTIONS = [
   {name:"평온",emoji:"🌊"},{name:"감사",emoji:"🙏"},{name:"뿌듯",emoji:"😁"},
   {name:"상쾌",emoji:"✨"},{name:"활력",emoji:"⚡"},{name:"기쁨",emoji:"😄"},
 ];
-const MEAL_HEALTH = ["🥗 건강식","🙂 건강","😐 보통","🍟 정크","🍔 완전정크"];
+const MEAL_HEALTH  = ["🥗 건강식","🙂 건강","😐 보통","🍟 정크","🍔 완전정크"];
+const MEAL_HUNGER  = ["🌟 배고팠음","😐 그냥먹음","😞 안배고픔"];
+const HUNGER_MAP   = {"🌟 배고팠음":100,"😐 그냥먹음":50,"😞 안배고픔":0};
+const HEALTH_MAP   = {"🥗 건강식":100,"🙂 건강":80,"😐 보통":60,"🍟 정크":40,"🍔 완전정크":20};
 const HYD_TYPES  = [
   { key:"water",      label:"물",       ml:true  },
   { key:"tea",        label:"차",       ml:true  },
@@ -361,8 +364,9 @@ function MealForm({entry,onSave,onCancel,editEv}) {
   const [end,setEnd]=useState(editEv?.endTime??nowHM());
   const [label,setLabel]=useState(editEv?.label??"");
   const [feel,setFeel]=useState(editEv?.feel??null);
+  const [hunger,setHunger]=useState(editEv?.hunger??null);
   return h(FormWrap,{title:"🍽️ 식사",onCancel,onSave:()=>{
-    const ev={id:editEv?.id??uid6(),type:"meal",time:start,endTime:end,label,feel};
+    const ev={id:editEv?.id??uid6(),type:"meal",time:start,endTime:end,label,feel,hunger};
     const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
@@ -370,6 +374,10 @@ function MealForm({entry,onSave,onCancel,editEv}) {
     h("div",{style:secSt},
       h("label",{style:labelSt},"메뉴"),
       h(MemoArea,{value:label,onChange:setLabel,placeholder:"점심, 한식, 샐러드..."})
+    ),
+    h("div",{style:secSt},
+      h("label",{style:labelSt},"배가 고팠나요? (선택)"),
+      h(ScaleRow,{options:MEAL_HUNGER,value:hunger,onChange:setHunger})
     ),
     h("div",{style:secSt},
       h("label",{style:labelSt},"건강하게 먹었나요? (선택)"),
@@ -549,7 +557,7 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
     } else {
       const cat=catMap[item.type]; icon=cat?.icon||"·"; color=cat?.color||BDR;
       if(item.type==="exercise")   text=`운동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else if(item.type==="meal")  text=`식사${item.data.label?` · ${item.data.label}`:""}${item.data.feel?` · ${item.data.feel}`:""}`;
+      else if(item.type==="meal")  text=`식사${item.data.hunger?` · ${item.data.hunger}`:""}${item.data.feel?` · ${item.data.feel}`:""}${item.data.label?` · ${item.data.label}`:""}`;
       else if(item.type==="meditation") text=`명상${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.lotus?" · 결가부좌":""}`;
       else if(item.type==="hydration")  text=`수분${item.data.amountMl?` · ${item.data.amountMl}ml`:""}${item.data.cups?` · ${item.data.cups}잔`:""}${item.data.label?` · ${item.data.label}`:""}`;
       else if(item.type==="bathroom")   text=`화장실${item.data.feel?` · ${item.data.feel}`:""}`;

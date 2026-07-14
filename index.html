@@ -685,12 +685,18 @@ function computeDayScore(entry, prevEntry, goals) {
     const shortGaps = gaps.filter(g => g < 90).length;
     foodSub.push(Math.max(0, 100 - shortGaps * 25));
   }
-  const mealFeels = entry.events.filter(e => e.type === "meal" && e.feel);
+  const mealFeels = entry.events.filter(e => e.type === "meal" && (e.feel || e.hunger));
   if (mealFeels.length) {
-    const feelMap = {
-      "🥗 건강식": 100, "🙂 건강": 80, "😐 보통": 60, "🍟 정크": 40, "🍔 완전정크": 20
-    };
-    foodSub.push(mealFeels.reduce((a, e) => a + (feelMap[e.feel] ?? 60), 0) / mealFeels.length);
+    const feelMap = { "🥗 건강식": 100, "🙂 건강": 80, "😐 보통": 60, "🍟 정크": 40, "🍔 완전정크": 20 };
+    const hungerMap = { "🌟 배고팠음": 100, "😐 그냥먹음": 50, "😞 안배고픔": 0 };
+    foodSub.push(mealFeels.reduce((a, e) => {
+      const q = e.feel ? (feelMap[e.feel] ?? 60) : null;
+      const hv = e.hunger ? (hungerMap[e.hunger] ?? null) : null;
+      if (q != null && hv != null) return a + q * 0.6 + hv * 0.4;
+      if (q != null) return a + q;
+      if (hv != null) return a + hv;
+      return a + 60;
+    }, 0) / mealFeels.length);
   }
   if (foodSub.length) parts.push({ key: "food", v: foodSub.reduce((a, b) => a + b, 0) / foodSub.length, w: 15 });
 
@@ -850,7 +856,7 @@ function ScoreInfo({
   const morningPt = entry.morning ? Math.round(entry.morning.level / 5 * 100) : null;
   const eveningPt = entry.evening ? Math.round(entry.evening.level / 5 * 100) : null;
   const fastPt = score.fastHours != null ? (score.fastHours >= fastGoalH ? 100 : Math.round(Math.min(100, score.fastHours / fastGoalH * 100))) : null;
-  const foodPt = score.meals.length ? Math.round((() => { const sub = []; if (score.meals.length >= 2) { const gaps = []; for (let i = 1; i < score.meals.length; i++) gaps.push(toMin(score.meals[i]) - toMin(score.meals[i-1])); sub.push(Math.max(0, 100 - gaps.filter(g=>g<90).length*25)); } const feels = entry.events.filter(e=>e.type==="meal"&&e.feel); if (feels.length) { const fm = {"🥗 건강식":100,"🙂 건강":80,"😐 보통":60,"🍟 정크":40,"🍔 완전정크":20}; sub.push(feels.reduce((a,e)=>a+(fm[e.feel]??60),0)/feels.length); } return sub.length ? sub.reduce((a,b)=>a+b,0)/sub.length : 0; })()) : null;
+  const foodPt = score.meals.length ? Math.round((() => { const sub = []; if (score.meals.length >= 2) { const gaps = []; for (let i = 1; i < score.meals.length; i++) gaps.push(toMin(score.meals[i]) - toMin(score.meals[i-1])); sub.push(Math.max(0, 100 - gaps.filter(g=>g<90).length*25)); } const feels = entry.events.filter(e=>e.type==="meal"&&e.feel); if (feels.length) { const fm = {"🥗 건강식":100,"🙂 건강":80,"😐 보통":60,"🍟 정크":40,"🍔 완전정크":20}; const hm = {"🌟 배고팠음":100,"😐 그냥먹음":50,"😞 안배고픔":0}; sub.push(feels.reduce((a,e)=>{ const q=e.feel?(fm[e.feel]??60):null; const hv=e.hunger?(hm[e.hunger]??null):null; if(q!=null&&hv!=null)return a+q*0.6+hv*0.4; if(q!=null)return a+q; if(hv!=null)return a+hv; return a+60; },0)/feels.length); } return sub.length ? sub.reduce((a,b)=>a+b,0)/sub.length : 0; })()) : null;
   const hydPt = score.hydrationMl > 0 ? (score.hydrationMl >= hydGoalMl ? 100 : Math.round(Math.min(100, score.hydrationMl / hydGoalMl * 100))) : null;
   const exPt = score.exMinutes > 0 ? (score.exMinutes >= exGoal ? 100 : Math.round(Math.min(100, score.exMinutes / exGoal * 100))) : null;
   const medPt = score.medMinutes > 0 ? (score.medMinutes >= medGoal ? 100 : Math.round(Math.min(100, score.medMinutes / medGoal * 100))) : null;
@@ -1406,6 +1412,7 @@ function QuickLogForm({
   const [memo, setMemo] = useState("");
   const [feel, setFeel] = useState(null);
   const [mealFeel, setMealFeel] = useState(null);
+  const [mealHunger, setMealHunger] = useState(null);
   const [lotus, setLotus] = useState(false);
   const [emotion, setEmotion] = useState(null);
   const [hydType, setHydType] = useState("water");
@@ -1424,7 +1431,8 @@ function QuickLogForm({
       time,
       endTime,
       label,
-      feel: mealFeel
+      feel: mealFeel,
+      hunger: mealHunger
     });else if (type === "hydration") onSubmit({
       time,
       hydType,
@@ -1563,7 +1571,21 @@ function QuickLogForm({
       color: mealFeel === f ? "#fff" : INK,
       cursor: "pointer"
     }
-  }, f)))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, f))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "배가 고팠나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 10 } }, ["🌟 배고팠음", "😐 그냥먹음", "😞 안배고픔"].map(h => /*#__PURE__*/React.createElement("button", {
+    key: h,
+    onClick: () => setMealHunger(h),
+    style: {
+      flex: 1,
+      padding: "8px 0",
+      border: `2px solid ${INK}`,
+      borderRadius: 2,
+      fontSize: 11,
+      fontWeight: 700,
+      background: mealHunger === h ? INK : "#ffffffaa",
+      color: mealHunger === h ? "#fff" : INK,
+      cursor: "pointer"
+    }
+  }, h)))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -1880,6 +1902,7 @@ function EventEditForm({
   const [endTime, setEndTime] = useState(ev.endTime || ev.time);
   const [memo, setMemo] = useState(ev.memo || "");
   const [feel, setFeel] = useState(ev.feel || null);
+  const [mealHunger, setMealHunger] = useState(ev.hunger || null);
   const [lotus, setLotus] = useState(ev.lotus || false);
   const [emotion, setEmotion] = useState(ev.name || null);
   const [hydType, setHydType] = useState(ev.hydType || "water");
@@ -1896,7 +1919,8 @@ function EventEditForm({
       time,
       endTime,
       label,
-      feel
+      feel,
+      hunger: mealHunger
     });else if (ev.type === "hydration") onSave({
       time,
       hydType,
@@ -1981,7 +2005,21 @@ function EventEditForm({
       color: feel === f ? "#fff" : INK,
       cursor: "pointer"
     }
-  }, f)))), ev.type === "hydration" && /*#__PURE__*/React.createElement("div", null,
+  }, f))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "배가 고팠나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, ["🌟 배고팠음", "😐 그냥먹음", "😞 안배고픔"].map(hv => /*#__PURE__*/React.createElement("button", {
+    key: hv,
+    onClick: () => setMealHunger(hv),
+    style: {
+      flex: 1,
+      padding: "7px 0",
+      border: `2px solid ${INK}`,
+      borderRadius: 2,
+      fontSize: 11,
+      fontWeight: 700,
+      background: mealHunger === hv ? INK : "#ffffffaa",
+      color: mealHunger === hv ? "#fff" : INK,
+      cursor: "pointer"
+    }
+  }, hv)))), ev.type === "hydration" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 6, marginBottom: 8 }
   }, HYDRATION_TYPES.map(ht => /*#__PURE__*/React.createElement("button", {
