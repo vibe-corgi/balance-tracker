@@ -142,81 +142,36 @@ function MemoArea({ value, onChange, placeholder="메모 (선택)" }) {
   });
 }
 
-// ── 스텝 시간 피커 ──────────────────────────────────────
-function AB({ label, onClick }) {
-  return h("button", { onClick, style: {
-    background: "#3D2E6B", border: "none", color: "#C4AAEE", fontSize: 12,
-    cursor: "pointer", borderRadius: 6, width: 32, height: 36,
-    display: "flex", alignItems: "center", justifyContent: "center",
-    fontWeight: 900, flexShrink: 0
-  }}, label);
-}
-
-function TimeStepRow({ value, onChange }) {
-  const p = parseTime(value);
-  const [apS, setAp] = useState(p.ap);
-  const [hrS, setHr] = useState(p.h12);
-  const [mnS, setMn] = useState(p.min);
-  const cur = useRef({ ap: p.ap, hr: p.h12, mn: p.min });
-  const emit = (a, h, m) => { cur.current={ap:a,hr:h,mn:m}; onChange(buildTime(a,h,m)); };
+// ── 시간 입력 (오전/오후 토글 + 네이티브 time input) ────
+function TimeInput({ value, onChange, label }) {
+  const hh = parseInt((value||"00:00").split(":")[0]);
+  const isAM = hh < 12;
 
   const toggleAP = () => {
-    const n = apS==="오전"?"오후":"오전";
-    setAp(n); emit(n, cur.current.hr, cur.current.mn);
-  };
-  const adjHr = d => {
-    const i = HOURS.indexOf(hrS);
-    const n = HOURS[(i+d+12)%12];
-    setHr(n); emit(cur.current.ap, n, cur.current.mn);
-  };
-  const adjMn = d => {
-    const m = parseInt(mnS);
-    const n = String(((m+d)%60+60)%60).padStart(2,"0");
-    setMn(n); emit(cur.current.ap, cur.current.hr, n);
+    const [h2, m2] = (value||"00:00").split(":").map(Number);
+    const newH = isAM ? (h2+12)%24 : Math.max(0, h2-12);
+    onChange(`${String(newH).padStart(2,"0")}:${String(m2).padStart(2,"0")}`);
   };
 
-  const numBox = v => h("div", { style: {
-    fontSize: 22, fontWeight: 800, color: "#fff", width: 36,
-    textAlign: "center", fontVariantNumeric: "tabular-nums", flexShrink: 0
-  }}, v);
-
-  return h("div", { style: { display:"flex", alignItems:"center", gap:5, padding:"10px 12px" }},
-    h("button", { onClick: toggleAP, style: {
-      background: PU, border: "none", color: "#fff", cursor: "pointer",
-      borderRadius: 8, padding: "9px 11px", fontSize: 14, fontWeight: 800,
-      flexShrink: 0, minWidth: 52, textAlign: "center"
-    }}, apS),
-    h("div", { style: { flex: 1 }}),
-    h(AB, { label: "◀", onClick: ()=>adjHr(-1) }),
-    numBox(hrS),
-    h(AB, { label: "▶", onClick: ()=>adjHr(1) }),
-    h("span", { style: { color: PU, fontSize: 20, fontWeight: 900, padding: "0 3px", flexShrink: 0 }}, ":"),
-    h(AB, { label: "◀", onClick: ()=>adjMn(-1) }),
-    numBox(mnS),
-    h(AB, { label: "▶", onClick: ()=>adjMn(1) })
-  );
-}
-
-function TimeInput({ value, onChange, label }) {
   return h("div", null,
     label && h("label", { style: labelSt }, label),
-    h("div", { style: { background:"#2A1F4A", border:"2px solid #3D2E6B", borderRadius:12, overflow:"hidden" }},
-      h(TimeStepRow, { value, onChange })
+    h("div", { style: { display:"flex", gap:6, alignItems:"stretch" }},
+      h("button", { onClick: toggleAP, style: {
+        background: PU, border: "none", color: "#fff", cursor: "pointer",
+        borderRadius: 10, padding: "0 10px", fontSize: 14, fontWeight: 800,
+        flexShrink: 0, minWidth: 52, textAlign: "center"
+      }}, isAM ? "오전" : "오후"),
+      h("input", { type:"time", value, onChange: e => onChange(e.target.value),
+        style: { ...inputSt, flex: 1, minWidth: 0 }})
     )
   );
 }
 
 function TimeRange({ start, end, onStart, onEnd }) {
-  return h("div", { style: { background:"#2A1F4A", border:"2px solid #3D2E6B", borderRadius:12, overflow:"hidden" }},
-    h("div", { style: { padding:"8px 12px 0" }},
-      h("label", { style: { ...labelSt, marginBottom: 0 }}, "시작")
-    ),
-    h(TimeStepRow, { value: start, onChange: onStart }),
-    h("div", { style: { height: 1, background: "#3D2E6B", margin: "0 12px" }}),
-    h("div", { style: { padding:"8px 12px 0" }},
-      h("label", { style: { ...labelSt, marginBottom: 0 }}, "종료")
-    ),
-    h(TimeStepRow, { value: end, onChange: onEnd })
+  return h("div", { style: { display:"flex", gap:10, alignItems:"flex-end" }},
+    h("div", { style: { flex:1, minWidth:0 }}, h(TimeInput, { value:start, onChange:onStart, label:"시작" })),
+    h("div", { style: { color:PU, fontWeight:900, paddingBottom:14, flexShrink:0 }}, "~"),
+    h("div", { style: { flex:1, minWidth:0 }}, h(TimeInput, { value:end, onChange:onEnd, label:"종료" }))
   );
 }
 
