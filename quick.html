@@ -117,11 +117,20 @@ const HYD_TYPES  = [
   { key:"commercial", label:"시판음료", ml:false },
   { key:"health",     label:"건강음료", cups:true},
 ];
-const BATH_FEELS  = ["매우 좋음","좋음","보통","불편","매우 불편"];
-const BATH_SCORE  = {"매우 좋음":100,"좋음":80,"보통":60,"불편":40,"매우 불편":20};
+const BATH_FEELS  = ["아주 편함","편함","보통","불편","아주 불편"];
+// 웹과 동일한 레이블 + 이전 앱 레이블 하위 호환
+const BATH_SCORE  = {
+  "아주 편함":100,"편함":80,"보통":60,"불편":40,"아주 불편":20,
+  "매우 좋음":100,"좋음":80,"매우 불편":20,
+};
 const LV_EMOJI    = ["","😞","😕","😐","🙂","😊"];
 
-function computeQuickScore(entry, prevEntry) {
+const DEFAULT_GOALS = {
+  exerciseGoalMin: 30, meditationGoalMin: 20, fastingGoalHours: 12,
+  hydrationGoalL: 1.5, healthDrinkGoal: 1, sleepGoalMinH: 6, sleepGoalMaxH: 8,
+};
+
+function computeQuickScore(entry, prevEntry, goals = DEFAULT_GOALS) {
   if(!entry) return null;
   const parts = [];
 
@@ -131,33 +140,48 @@ function computeQuickScore(entry, prevEntry) {
   if(eveningV!=null) parts.push({key:"evening", v:eveningV, w:10});
 
   const meals=(entry.events||[]).filter(e=>e.type==="meal");
+  const mealTimes=meals.map(e=>e.time).sort();
   const mealRated=meals.filter(e=>e.feel||e.hunger);
   let foodV=null;
-  if(mealRated.length){
-    foodV=mealRated.reduce((a,e)=>{
-      const q=e.feel?(HEALTH_MAP[e.feel]??60):null;
-      const hv=e.hunger?(HUNGER_MAP[e.hunger]??null):null;
-      if(q!=null&&hv!=null)return a+q*0.6+hv*0.4;
-      if(q!=null)return a+q;
-      if(hv!=null)return a+hv;
-      return a+60;
-    },0)/mealRated.length;
-    parts.push({key:"food", v:foodV, w:15});
+  if(meals.length || mealRated.length){
+    const foodSub=[];
+    // 식사 간격 점수 (웹과 동일: 90분 미만 간격마다 -25점)
+    if(mealTimes.length>=2){
+      const gaps=[];
+      for(let i=1;i<mealTimes.length;i++) gaps.push(toMin(mealTimes[i])-toMin(mealTimes[i-1]));
+      foodSub.push(Math.max(0,100-gaps.filter(g=>g<90).length*25));
+    }
+    // feel/hunger 점수
+    if(mealRated.length){
+      foodSub.push(mealRated.reduce((a,e)=>{
+        const q=e.feel?(HEALTH_MAP[e.feel]??60):null;
+        const hv=e.hunger?(HUNGER_MAP[e.hunger]??null):null;
+        if(q!=null&&hv!=null)return a+q*0.6+hv*0.4;
+        if(q!=null)return a+q;
+        if(hv!=null)return a+hv;
+        return a+60;
+      },0)/mealRated.length);
+    }
+    if(foodSub.length){ foodV=foodSub.reduce((a,b)=>a+b,0)/foodSub.length; parts.push({key:"food",v:foodV,w:15}); }
   }
 
   const hydMl=(entry.events||[]).filter(e=>e.type==="hydration"&&(e.hydType==="water"||e.hydType==="tea")).reduce((a,e)=>a+(Number(e.amountMl)||0),0);
-  const hydV=hydMl>0?Math.min(100,hydMl/1500*100):null;
+  const hydGoal=(goals.hydrationGoalL||1.5)*1000;
+  const hydV=hydMl>0?Math.min(100,hydMl/hydGoal*100):null;
   if(hydV!=null) parts.push({key:"hydration", v:hydV, w:10});
 
   const healthCups=(entry.events||[]).filter(e=>e.type==="hydration"&&e.hydType==="health").reduce((a,e)=>a+(Number(e.cups)||1),0);
-  if(healthCups>=1) parts.push({key:"healthDrink", v:100, w:3});
+  const healthGoal=goals.healthDrinkGoal||1;
+  if(healthCups>=healthGoal) parts.push({key:"healthDrink", v:100, w:3});
 
   const exMin=(entry.events||[]).filter(e=>e.type==="exercise").reduce((a,e)=>a+(e.duration||0),0);
-  const exV=exMin>0?Math.min(100,exMin/30*100):null;
+  const exGoal=goals.exerciseGoalMin||30;
+  const exV=exMin>0?Math.min(100,exMin/exGoal*100):null;
   if(exV!=null) parts.push({key:"exercise", v:exV, w:15});
 
   const medMin=(entry.events||[]).filter(e=>e.type==="meditation").reduce((a,e)=>a+(e.duration||0),0);
-  const medV=medMin>0?Math.min(100,medMin/20*100):null;
+  const medGoal=goals.meditationGoalMin||20;
+  const medV=medMin>0?Math.min(100,medMin/medGoal*100):null;
   if(medV!=null) parts.push({key:"meditation", v:medV, w:10});
 
   const restMin=(entry.events||[]).filter(e=>e.type==="rest").reduce((a,e)=>a+(e.duration||0),0);
@@ -173,7 +197,7 @@ function computeQuickScore(entry, prevEntry) {
   if(prevMeals.length && todayMeals.length){
     const fastMin=1440-toMin(prevMeals[prevMeals.length-1])+toMin(todayMeals[0]);
     const fastH=fastMin/60;
-    fastV=Math.min(100,fastH/12*100);
+    fastV=Math.min(100,fastH/(goals.fastingGoalHours||12)*100);
     fastVal=`${fastH.toFixed(1)}h`;
     parts.push({key:"fasting", v:fastV, w:15});
   }
@@ -186,7 +210,7 @@ function computeQuickScore(entry, prevEntry) {
     const bedMin=toMin(prevBed), wakeMin=toMin(wakeTime);
     const sleepMin=bedMin>wakeMin ? 1440-bedMin+wakeMin : wakeMin-bedMin;
     const sleepH=sleepMin/60;
-    const sMin=6, sMax=8;
+    const sMin=goals.sleepGoalMinH||6, sMax=goals.sleepGoalMaxH||8;
     sleepV=sleepH<sMin ? Math.max(0,100-Math.ceil((sMin-sleepH)/0.5)*20)
           :sleepH>sMax ? Math.max(0,100-Math.ceil((sleepH-sMax)/0.5)*10)
           :100;
@@ -621,12 +645,12 @@ function RestForm({entry,onSave,onCancel,editEv}) {
 }
 
 // ── 오늘의 흐름 ───────────────────────────────────────────
-function TodayFlow({ entry, prevEntry, onEditMorning, onEditEvening, onEditEvent, onDeleteEvent }) {
+function TodayFlow({ entry, prevEntry, goals, onEditMorning, onEditEvening, onEditEvent, onDeleteEvent }) {
   const [showDetail, setShowDetail] = useState(false);
 
   if(!entry) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"오늘 기록이 없어요");
 
-  const score = computeQuickScore(entry, prevEntry);
+  const score = computeQuickScore(entry, prevEntry, goals);
   const catMap = Object.fromEntries(CATS.map(c=>[c.id,c]));
   const items = [];
   if(entry.morning?.wakeTime) items.push({time:entry.morning.wakeTime,type:"wake",data:entry.morning});
@@ -840,6 +864,7 @@ function QuickApp() {
   const [loading,setLoading]=useState(true);
   const [entry,setEntry]=useState(null);
   const [prevEntry,setPrevEntry]=useState(null);
+  const [goals,setGoals]=useState(DEFAULT_GOALS);
   const [activeForm,setActiveForm]=useState(null);
   const [editEv,setEditEv]=useState(null);
   const [tab,setTab]=useState("기록");
@@ -857,6 +882,9 @@ function QuickApp() {
     // 어제 데이터 (공복·수면 계산용)
     db.collection("users").doc(user.uid).collection("data").doc(`entry:${getDateStr(1)}`).get()
       .then(snap=>{ if(snap.exists){try{setPrevEntry(JSON.parse(snap.data().value));}catch{}} });
+    // 목표값 (웹과 동일한 Firestore 경로)
+    db.collection("users").doc(user.uid).collection("data").doc("settings:goals").get()
+      .then(snap=>{ if(snap.exists){try{setGoals({...DEFAULT_GOALS,...JSON.parse(snap.data().value)});}catch{}} });
     return unsub;
   },[user]);
 
@@ -943,6 +971,7 @@ function QuickApp() {
         : tab==="오늘" ? h(TodayFlow,{
             entry,
             prevEntry,
+            goals,
             onEditMorning:()=>openEdit("morning"),
             onEditEvening:()=>openEdit("evening"),
             onEditEvent:(ev)=>openEdit(ev.type,ev),
