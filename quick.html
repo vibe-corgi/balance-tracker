@@ -27,6 +27,7 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: #1A1033; }
     ::-webkit-scrollbar-thumb { background: #3D2E6B; border-radius: 4px; }
+    .wc::-webkit-scrollbar { display: none; }
   </style>
 </head>
 <body>
@@ -58,12 +59,13 @@ const CATS = [
   { id:"bathroom",   icon:"🚽", label:"화장실",      color:"#8D6E63" },
   { id:"emotion",    icon:"💭", label:"감정",        color:"#EF5350" },
 ];
+// 웹 앱(index.html) EMOTIONS 키 순서와 동일
 const EMOTIONS = [
-  {name:"행복",emoji:"😄"},{name:"설렘",emoji:"🤩"},{name:"뿌듯",emoji:"😊"},
-  {name:"상쾌",emoji:"😌"},{name:"활력",emoji:"⚡"},{name:"편안",emoji:"🍃"},
-  {name:"집중",emoji:"🎯"},{name:"보통",emoji:"😐"},{name:"무기력",emoji:"😴"},
-  {name:"지침",emoji:"😩"},{name:"긴장",emoji:"😰"},{name:"답답",emoji:"😤"},
-  {name:"불안",emoji:"😟"},{name:"슬픔",emoji:"😢"},{name:"화남",emoji:"😡"},
+  {name:"까칠",emoji:"😒"},{name:"불안",emoji:"😟"},{name:"슬픔",emoji:"😢"},
+  {name:"무기력",emoji:"😴"},{name:"지침",emoji:"😩"},{name:"답답",emoji:"😤"},
+  {name:"긴장",emoji:"😰"},{name:"집중",emoji:"🎯"},{name:"편안",emoji:"😌"},
+  {name:"평온",emoji:"🌊"},{name:"감사",emoji:"🙏"},{name:"뿌듯",emoji:"🥲"},
+  {name:"상쾌",emoji:"✨"},{name:"활력",emoji:"⚡"},{name:"기쁨",emoji:"😄"},
 ];
 const FEEL_OPTS = ["아주 잘 맞음","잘 맞음","보통","안 맞음","아주 안 맞음"];
 const HYD_TYPES = [
@@ -75,6 +77,12 @@ const HYD_TYPES = [
 ];
 const BATH_FEELS = ["매우 좋음","좋음","보통","불편","매우 불편"];
 const LV_EMOJI = ["","😞","😕","😐","🙂","😊"];
+
+// ── 휠 피커 상수 ────────────────────────────────────────
+const ITEM_H = 44;
+const AMPM  = ["오전","오후"];
+const HOURS = Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"));
+const MINS  = Array.from({length:12},(_,i)=>String(i*5).padStart(2,"0"));
 
 // ── 헬퍼 ───────────────────────────────────────────────
 function getToday() {
@@ -96,6 +104,20 @@ function fmtDate(s) {
 }
 function toMin(hm) { if(!hm)return 0; const[h,m]=hm.split(":").map(Number); return h*60+m; }
 function fmtDur(min) { const h=Math.floor(min/60),m=min%60; return h?`${h}시간${m?` ${m}분`:""}`:m?`${m}분`:""; }
+function parseTime(v="00:00") {
+  const [H,M] = (v||"00:00").split(":").map(Number);
+  const ap = H < 12 ? "오전" : "오후";
+  const raw = H===0?12:H>12?H-12:H;
+  const h12 = String(raw).padStart(2,"0");
+  const min  = String(Math.round(M/5)*5 % 60).padStart(2,"0");
+  return {ap, h12, min};
+}
+function buildTime(ap, h12, min) {
+  let H = parseInt(h12);
+  if (ap==="오전") { if(H===12) H=0; }
+  else { if(H!==12) H+=12; }
+  return `${String(H).padStart(2,"0")}:${min}`;
+}
 
 // ── 스타일 ─────────────────────────────────────────────
 const inputSt = {
@@ -118,10 +140,94 @@ function MemoArea({ value, onChange, placeholder="메모 (선택)" }) {
   });
 }
 
+// ── 드럼롤 휠 피커 ──────────────────────────────────────
+function WheelCol({ items, value, onChange, width=90 }) {
+  const ref  = useRef(null);
+  const timer = useRef(null);
+  const prog  = useRef(false);
+
+  useEffect(() => {
+    const i = items.indexOf(String(value));
+    if (ref.current && i >= 0) {
+      prog.current = true;
+      ref.current.scrollTop = i * ITEM_H;
+      setTimeout(()=>{ prog.current=false; }, 80);
+    }
+  }, [value]);
+
+  const onScroll = () => {
+    if (prog.current) return;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (!ref.current) return;
+      const i  = Math.round(ref.current.scrollTop / ITEM_H);
+      const ci = Math.max(0, Math.min(i, items.length-1));
+      prog.current = true;
+      ref.current.scrollTop = ci * ITEM_H;
+      setTimeout(()=>{ prog.current=false; }, 80);
+      onChange(items[ci]);
+    }, 150);
+  };
+
+  return h("div", {
+    ref, onScroll, className:"wc",
+    style:{ width, height:ITEM_H*5, overflowY:"scroll",
+      scrollSnapType:"y mandatory", WebkitOverflowScrolling:"touch",
+      scrollbarWidth:"none", msOverflowStyle:"none" }
+  },
+    h("div",{style:{height:ITEM_H*2}}),
+    items.map(item =>
+      h("div",{key:item, style:{
+        height:ITEM_H, scrollSnapAlign:"center",
+        display:"flex", alignItems:"center", justifyContent:"center",
+        fontSize:17, fontWeight:item===value?800:400,
+        color:item===value?"#fff":"rgba(155,127,212,0.4)",
+        userSelect:"none", WebkitUserSelect:"none"
+      }}, item)
+    ),
+    h("div",{style:{height:ITEM_H*2}})
+  );
+}
+
+function TimeWheelInput({ value, onChange }) {
+  const {ap:iAP, h12:iH, min:iM} = parseTime(value);
+  const [ap,setAp] = useState(iAP);
+  const [hr,setHr] = useState(iH);
+  const [mn,setMn] = useState(iM);
+  const cur = useRef({ap:iAP,hr:iH,mn:iM});
+
+  const emit = (a,h,m) => {
+    cur.current={ap:a,hr:h,mn:m};
+    onChange(buildTime(a,h,m));
+  };
+
+  return h("div",{style:{position:"relative",background:"#2A1F4A",border:"2px solid #3D2E6B",borderRadius:12,overflow:"hidden"}},
+    h("div",{style:{position:"absolute",top:ITEM_H*2,left:0,right:0,height:ITEM_H,
+      background:"rgba(155,111,199,0.18)",
+      borderTop:"1.5px solid rgba(155,111,199,0.5)",
+      borderBottom:"1.5px solid rgba(155,111,199,0.5)",
+      pointerEvents:"none",zIndex:1}}),
+    h("div",{style:{position:"absolute",top:0,left:0,right:0,height:ITEM_H*2,
+      background:"linear-gradient(to bottom,#2A1F4A 15%,transparent)",
+      pointerEvents:"none",zIndex:2}}),
+    h("div",{style:{position:"absolute",bottom:0,left:0,right:0,height:ITEM_H*2,
+      background:"linear-gradient(to top,#2A1F4A 15%,transparent)",
+      pointerEvents:"none",zIndex:2}}),
+    h("div",{style:{display:"flex",alignItems:"center"}},
+      h(WheelCol,{items:AMPM, value:ap, width:90, onChange:v=>{setAp(v);emit(v,cur.current.hr,cur.current.mn);}}),
+      h("div",{style:{width:1,height:ITEM_H*5,background:"#3D2E6B",flexShrink:0}}),
+      h(WheelCol,{items:HOURS,value:hr, width:90, onChange:v=>{setHr(v);emit(cur.current.ap,v,cur.current.mn);}}),
+      h("div",{style:{width:22,display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:18,fontWeight:900,color:"#9B7FD4",flexShrink:0}},":"),
+      h(WheelCol,{items:MINS, value:mn, width:90, onChange:v=>{setMn(v);emit(cur.current.ap,cur.current.hr,v);}})
+    )
+  );
+}
+
 function TimeInput({ value, onChange, label }) {
   return h("div", null,
     label && h("label", {style:labelSt}, label),
-    h("input", { type:"time", value, onChange:e=>onChange(e.target.value), style:inputSt })
+    h(TimeWheelInput, { value, onChange })
   );
 }
 
