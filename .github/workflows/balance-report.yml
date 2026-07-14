@@ -53,8 +53,10 @@ jobs:
           fi
 
       - name: Setup Firebase key
+        env:
+          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY_JSON }}
         run: |
-          echo '${{ secrets.FIREBASE_KEY_JSON }}' > /tmp/firebase-key.json
+          printf '%s' "$FIREBASE_KEY" > /tmp/firebase-key.json
           jq -r '.private_key' /tmp/firebase-key.json > /tmp/firebase-key.pem
 
       - name: Get Firestore access token
