@@ -58,7 +58,13 @@ const CATS = [
   { id:"bathroom",   icon:"🚽", label:"화장실",      color:"#8D6E63" },
   { id:"emotion",    icon:"💭", label:"감정",        color:"#EF5350" },
 ];
-const EMOTIONS = ["행복","설렘","뿌듯","상쾌","활력","편안","집중","보통","무기력","지침","긴장","답답","불안","슬픔","화남"];
+const EMOTIONS = [
+  {name:"행복",emoji:"😄"},{name:"설렘",emoji:"🤩"},{name:"뿌듯",emoji:"😊"},
+  {name:"상쾌",emoji:"😌"},{name:"활력",emoji:"⚡"},{name:"편안",emoji:"🍃"},
+  {name:"집중",emoji:"🎯"},{name:"보통",emoji:"😐"},{name:"무기력",emoji:"😴"},
+  {name:"지침",emoji:"😩"},{name:"긴장",emoji:"😰"},{name:"답답",emoji:"😤"},
+  {name:"불안",emoji:"😟"},{name:"슬픔",emoji:"😢"},{name:"화남",emoji:"😡"},
+];
 const FEEL_OPTS = ["아주 잘 맞음","잘 맞음","보통","안 맞음","아주 안 맞음"];
 const HYD_TYPES = [
   { key:"water",      label:"물",      ml:true  },
@@ -152,15 +158,33 @@ function LevelPicker({ value, onChange }) {
   );
 }
 
-function TagRow({ options, value, onChange, multi=false }) {
+function TagRow({ options, value, onChange }) {
   return h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
     options.map(opt =>
       h("button",{
-        key:opt, onClick:()=>onChange(multi ? (value===opt?null:opt) : (value===opt?null:opt)),
+        key:opt, onClick:()=>onChange(value===opt?null:opt),
         style:{
           padding:"9px 13px", borderRadius:8, cursor:"pointer", fontSize:12, fontWeight:700,
           border:"2px solid "+(value===opt?PU:"#3D2E6B"),
           background:value===opt?PU:"#2A1F4A", color:"#fff"
+        }
+      }, opt)
+    )
+  );
+}
+
+// 가로 한 줄 균등 분할 (식사 느낌, 화장실 컨디션 등)
+function ScaleRow({ options, value, onChange }) {
+  return h("div",{style:{display:"grid",gridTemplateColumns:`repeat(${options.length},1fr)`,gap:4}},
+    options.map(opt =>
+      h("button",{
+        key:opt, onClick:()=>onChange(value===opt?null:opt),
+        style:{
+          padding:"9px 2px", borderRadius:8, cursor:"pointer",
+          fontSize:10, fontWeight:700, lineHeight:1.4, textAlign:"center",
+          border:"2px solid "+(value===opt?PU:"#3D2E6B"),
+          background:value===opt?PU:"#2A1F4A", color:"#fff",
+          wordBreak:"keep-all"
         }
       }, opt)
     )
@@ -248,7 +272,7 @@ function MealForm({entry,onSave,onCancel}) {
     ),
     h("div",{style:secSt},
       h("label",{style:labelSt},"몸에 어땠나요? (선택)"),
-      h(TagRow,{options:FEEL_OPTS,value:feel,onChange:setFeel})
+      h(ScaleRow,{options:FEEL_OPTS,value:feel,onChange:setFeel})
     )
   );
 }
@@ -258,16 +282,18 @@ function MeditationForm({entry,onSave,onCancel}) {
   const [start,setStart]=useState(now);
   const [end,setEnd]=useState(now);
   const [lotus,setLotus]=useState(false);
+  const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
   return h(FormWrap,{title:"🧘 명상",onCancel,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meditation",time:start,endTime:end,duration:dur(),lotus}]});
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meditation",time:start,endTime:end,duration:dur(),lotus,memo}]});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:{...secSt,display:"flex",alignItems:"center",gap:10}},
       h("input",{type:"checkbox",id:"lotus",checked:lotus,onChange:e=>setLotus(e.target.checked),
         style:{width:20,height:20,accentColor:PU,cursor:"pointer"}}),
-      h("label",{htmlFor:"lotus",style:{...labelSt,margin:0,cursor:"pointer"}}, "🪷 결가부좌")
-    )
+      h("label",{htmlFor:"lotus",style:{...labelSt,margin:0,cursor:"pointer",fontSize:14}}, "결가부좌")
+    ),
+    h("div",{style:secSt}, h("label",{style:labelSt},"메모 (선택)"), h(MemoArea,{value:memo,onChange:setMemo}))
   );
 }
 
@@ -317,7 +343,7 @@ function BathroomForm({entry,onSave,onCancel}) {
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
     h("div",{style:secSt},
       h("label",{style:labelSt},"컨디션 (선택)"),
-      h(TagRow,{options:BATH_FEELS,value:feel,onChange:setFeel})
+      h(ScaleRow,{options:BATH_FEELS,value:feel,onChange:setFeel})
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모 (선택)"), h(MemoArea,{value:memo,onChange:setMemo}))
   );
@@ -335,11 +361,15 @@ function EmotionForm({entry,onSave,onCancel}) {
     h("div",{style:secSt},
       h("label",{style:labelSt},"감정"),
       h("div",{style:{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}},
-        EMOTIONS.map(em=>h("button",{
-          key:em, onClick:()=>setEmotion(em),
-          style:{padding:"10px 0",borderRadius:8,border:"2px solid "+(emotion===em?PU:"#3D2E6B"),
-            background:emotion===em?PU:"#2A1F4A",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}
-        },em))
+        EMOTIONS.map(({name,emoji})=>h("button",{
+          key:name, onClick:()=>setEmotion(name),
+          style:{padding:"10px 0",borderRadius:8,border:"2px solid "+(emotion===name?PU:"#3D2E6B"),
+            background:emotion===name?PU:"#2A1F4A",color:"#fff",cursor:"pointer",
+            display:"flex",flexDirection:"column",alignItems:"center",gap:3}
+        },
+          h("span",{style:{fontSize:20}},emoji),
+          h("span",{style:{fontSize:10,fontWeight:700}},name)
+        ))
       )
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모 (선택)"), h(MemoArea,{value:memo,onChange:setMemo}))
