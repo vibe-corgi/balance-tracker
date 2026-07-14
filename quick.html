@@ -64,7 +64,7 @@ const EMOTIONS = [
   {name:"까칠",emoji:"😒"},{name:"불안",emoji:"😟"},{name:"슬픔",emoji:"😢"},
   {name:"무기력",emoji:"😴"},{name:"지침",emoji:"😩"},{name:"답답",emoji:"😤"},
   {name:"긴장",emoji:"😰"},{name:"집중",emoji:"🎯"},{name:"편안",emoji:"😌"},
-  {name:"평온",emoji:"🌊"},{name:"감사",emoji:"🙏"},{name:"뿌듯",emoji:"🥲"},
+  {name:"평온",emoji:"🌊"},{name:"감사",emoji:"🙏"},{name:"뿌듯",emoji:"😁"},
   {name:"상쾌",emoji:"✨"},{name:"활력",emoji:"⚡"},{name:"기쁨",emoji:"😄"},
 ];
 const FEEL_OPTS = ["아주 잘 맞음","잘 맞음","보통","안 맞음","아주 안 맞음"];
@@ -82,7 +82,7 @@ const LV_EMOJI = ["","😞","😕","😐","🙂","😊"];
 const ITEM_H = 44;
 const AMPM  = ["오전","오후"];
 const HOURS = Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"));
-const MINS  = Array.from({length:12},(_,i)=>String(i*5).padStart(2,"0"));
+const MINS  = Array.from({length:60},(_,i)=>String(i).padStart(2,"0"));
 
 // ── 헬퍼 ───────────────────────────────────────────────
 function getToday() {
@@ -109,7 +109,7 @@ function parseTime(v="00:00") {
   const ap = H < 12 ? "오전" : "오후";
   const raw = H===0?12:H>12?H-12:H;
   const h12 = String(raw).padStart(2,"0");
-  const min  = String(Math.round(M/5)*5 % 60).padStart(2,"0");
+  const min  = String(M||0).padStart(2,"0");
   return {ap, h12, min};
 }
 function buildTime(ap, h12, min) {
@@ -142,18 +142,39 @@ function MemoArea({ value, onChange, placeholder="메모 (선택)" }) {
 
 // ── 드럼롤 휠 피커 ──────────────────────────────────────
 function WheelCol({ items, value, onChange, width=90 }) {
-  const ref  = useRef(null);
+  const ref   = useRef(null);
   const timer = useRef(null);
   const prog  = useRef(false);
+  const prev  = useRef(value);
 
+  // 초기 + value 변경 시 스크롤 위치 동기화 (RAF로 iOS 안정화)
+  useEffect(() => {
+    const i = items.indexOf(String(value));
+    if (ref.current && i >= 0 && value !== prev.current) {
+      prog.current = true;
+      requestAnimationFrame(() => {
+        if (ref.current) {
+          ref.current.scrollTop = i * ITEM_H;
+          setTimeout(() => { prog.current = false; }, 100);
+        }
+      });
+    }
+    prev.current = value;
+  }, [value]);
+
+  // 마운트 시 초기 위치 설정
   useEffect(() => {
     const i = items.indexOf(String(value));
     if (ref.current && i >= 0) {
       prog.current = true;
-      ref.current.scrollTop = i * ITEM_H;
-      setTimeout(()=>{ prog.current=false; }, 80);
+      requestAnimationFrame(() => {
+        if (ref.current) {
+          ref.current.scrollTop = i * ITEM_H;
+          setTimeout(() => { prog.current = false; }, 100);
+        }
+      });
     }
-  }, [value]);
+  }, []);
 
   const onScroll = () => {
     if (prog.current) return;
@@ -161,31 +182,37 @@ function WheelCol({ items, value, onChange, width=90 }) {
     timer.current = setTimeout(() => {
       if (!ref.current) return;
       const i  = Math.round(ref.current.scrollTop / ITEM_H);
-      const ci = Math.max(0, Math.min(i, items.length-1));
+      const ci = Math.max(0, Math.min(i, items.length - 1));
       prog.current = true;
-      ref.current.scrollTop = ci * ITEM_H;
-      setTimeout(()=>{ prog.current=false; }, 80);
-      onChange(items[ci]);
-    }, 150);
+      ref.current.scrollTo({ top: ci * ITEM_H, behavior: "smooth" });
+      setTimeout(() => { prog.current = false; }, 200);
+      if (items[ci] !== prev.current) {
+        prev.current = items[ci];
+        onChange(items[ci]);
+      }
+    }, 80);
   };
 
   return h("div", {
-    ref, onScroll, className:"wc",
-    style:{ width, height:ITEM_H*5, overflowY:"scroll",
-      scrollSnapType:"y mandatory", WebkitOverflowScrolling:"touch",
-      scrollbarWidth:"none", msOverflowStyle:"none" }
+    ref, onScroll, className: "wc",
+    style: {
+      width, height: ITEM_H * 5, overflowY: "scroll",
+      scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch",
+      scrollbarWidth: "none", msOverflowStyle: "none",
+    }
   },
-    h("div",{style:{height:ITEM_H*2}}),
+    h("div", { style: { height: ITEM_H * 2 } }),
     items.map(item =>
-      h("div",{key:item, style:{
-        height:ITEM_H, scrollSnapAlign:"center",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        fontSize:17, fontWeight:item===value?800:400,
-        color:item===value?"#fff":"rgba(155,127,212,0.4)",
-        userSelect:"none", WebkitUserSelect:"none"
+      h("div", { key: item, style: {
+        height: ITEM_H, scrollSnapAlign: "center", scrollSnapStop: "always",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 17, fontWeight: item === value ? 800 : 400,
+        color: item === value ? "#fff" : "rgba(155,127,212,0.4)",
+        userSelect: "none", WebkitUserSelect: "none",
+        transition: "color 0.15s, font-weight 0.15s",
       }}, item)
     ),
-    h("div",{style:{height:ITEM_H*2}})
+    h("div", { style: { height: ITEM_H * 2 } })
   );
 }
 
