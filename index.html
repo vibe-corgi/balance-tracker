@@ -1040,6 +1040,8 @@ function CheckinCard({
   const [bedTime, setBedTime] = useState(data?.bedTime ?? nowHM());
   const [bedNextDay, setBedNextDay] = useState(data?.bedNextDay ?? false);
   const [period, setPeriod] = useState(data?.period ?? false);
+  const [stretch, setStretch] = useState(data?.stretch ?? false);
+  const [saltGargle, setSaltGargle] = useState(data?.saltGargle ?? false);
   const save = () => {
     const payload = {
       level,
@@ -1052,6 +1054,7 @@ function CheckinCard({
       payload.bedNextDay = bedNextDay;
     }
     if (showPeriod) payload.period = period;
+    if (showWake) { payload.stretch = stretch; payload.saltGargle = saltGargle; }
     onSave(payload);
     setEditing(false);
   };
@@ -1118,7 +1121,21 @@ function CheckinCard({
       marginTop: 2,
       fontWeight: 700
     }
-  }, "🩸 생리중"), data.note && /*#__PURE__*/React.createElement("p", {
+  }, "🩸 생리중"), data.stretch && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: "#20A060",
+      marginTop: 2,
+      fontWeight: 700
+    }
+  }, "🤸 스트레칭"), data.saltGargle && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11.5,
+      color: "#4488CC",
+      marginTop: 2,
+      fontWeight: 700
+    }
+  }, "🧂 소금가글"), data.note && /*#__PURE__*/React.createElement("p", {
     style: {
       fontSize: 12.5,
       color: "#5B5580",
@@ -1181,7 +1198,39 @@ function CheckinCard({
       fontWeight: 800,
       padding: "10px 0"
     }
-  })), showBed && /*#__PURE__*/React.createElement("div", {
+  })), showWake && /*#__PURE__*/React.createElement("div", {
+    style: { marginTop: 10 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: "#5B5580" }
+  }, "아침 루틴"), /*#__PURE__*/React.createElement("div", {
+    style: { display: "flex", gap: 8, flexWrap: "wrap" }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setStretch(v => !v),
+    style: {
+      padding: "6px 12px",
+      border: `1.5px solid ${stretch ? "#20A060" : "#c0b0d0"}`,
+      borderRadius: 12,
+      cursor: "pointer",
+      fontSize: 11,
+      fontWeight: 600,
+      background: stretch ? "#20A060" : "#f5f0fa",
+      color: stretch ? "#fff" : "#8a70a0"
+    }
+  }, "🤸 스트레칭"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: () => setSaltGargle(v => !v),
+    style: {
+      padding: "6px 12px",
+      border: `1.5px solid ${saltGargle ? "#4488CC" : "#c0b0d0"}`,
+      borderRadius: 12,
+      cursor: "pointer",
+      fontSize: 11,
+      fontWeight: 600,
+      background: saltGargle ? "#4488CC" : "#f5f0fa",
+      color: saltGargle ? "#fff" : "#8a70a0"
+    }
+  }, "🧂 소금가글"))), showBed && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10
     }

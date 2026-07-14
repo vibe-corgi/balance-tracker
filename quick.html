@@ -431,16 +431,33 @@ function MorningForm({entry,onSave,onCancel}) {
   const [wake,setWake]=useState(ex?.wakeTime??nowHM());
   const [note,setNote]=useState(ex?.note??"");
   const [period,setPeriod]=useState(ex?.period??false);
+  const [stretch,setStretch]=useState(ex?.stretch??false);
+  const [saltGargle,setSaltGargle]=useState(ex?.saltGargle??false);
+  const chkSt={width:20,height:20,cursor:"pointer"};
+  const chkLabelSt=(on,col)=>({...labelSt,margin:0,cursor:"pointer",color:on?col:"#8a80a0",fontWeight:on?700:400});
   return h(FormWrap,{title:"☀️ 아침 컨디션",onCancel,onSave:()=>{
     if(!lv)return alert("컨디션을 선택해줘요");
-    onSave({...entry,morning:{level:lv,wakeTime:wake,note,period}});
+    onSave({...entry,morning:{level:lv,wakeTime:wake,note,period,stretch,saltGargle}});
   }},
     h("div",{style:secSt}, h("label",{style:labelSt},"컨디션"), h(LevelPicker,{value:lv,onChange:setLv})),
     h("div",{style:secSt}, h(TimeInput,{label:"기상 시간",value:wake,onChange:setWake})),
-    h("div",{style:{...secSt,display:"flex",alignItems:"center",gap:10}},
-      h("input",{type:"checkbox",id:"period",checked:period,onChange:e=>setPeriod(e.target.checked),
-        style:{width:20,height:20,accentColor:"#FF77A8",cursor:"pointer"}}),
-      h("label",{htmlFor:"period",style:{...labelSt,margin:0,cursor:"pointer",color:"#D06080"}},"🩸 생리 중")
+    h("div",{style:{...secSt,display:"flex",flexDirection:"column",gap:10}},
+      h("label",{style:labelSt},"아침 루틴"),
+      h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        h("input",{type:"checkbox",id:"stretch",checked:stretch,onChange:e=>setStretch(e.target.checked),
+          style:{...chkSt,accentColor:"#20A060"}}),
+        h("label",{htmlFor:"stretch",style:chkLabelSt(stretch,"#20A060")},"🤸 스트레칭")
+      ),
+      h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        h("input",{type:"checkbox",id:"saltGargle",checked:saltGargle,onChange:e=>setSaltGargle(e.target.checked),
+          style:{...chkSt,accentColor:"#4488CC"}}),
+        h("label",{htmlFor:"saltGargle",style:chkLabelSt(saltGargle,"#4488CC")},"🧂 소금가글")
+      ),
+      h("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        h("input",{type:"checkbox",id:"period",checked:period,onChange:e=>setPeriod(e.target.checked),
+          style:{...chkSt,accentColor:"#FF77A8"}}),
+        h("label",{htmlFor:"period",style:chkLabelSt(period,"#D06080")},"🩸 생리 중")
+      )
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:note,onChange:setNote}))
   );
