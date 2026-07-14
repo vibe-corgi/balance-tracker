@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="발란스">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <meta name="theme-color" content="#9FB0F0">
+  <meta name="theme-color" content="#C7D4FF">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -21,18 +21,22 @@
     html { min-height: 100%; }
     body {
       font-family: 'Galmuri11', -apple-system, sans-serif;
-      color: #fff;
+      color: #1A1033;
       min-height: 100%;
       background: radial-gradient(circle at 20% 8%, #FFE0F0 0%, #C7D4FF 45%, #9FB0F0 100%);
       background-attachment: fixed;
     }
     input, textarea, select, button { font-family: inherit; }
-    input[type="time"] { color-scheme: dark; }
+    input[type="time"] {
+      color-scheme: light;
+      /* prevent native spinner from being clipped */
+      min-width: 0;
+    }
     input:focus, textarea:focus { outline: none; }
     textarea { resize: none; overflow: hidden; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #3D2E6B; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(155,111,199,0.4); border-radius: 4px; }
     @keyframes saveIn {
       0%   { opacity:0; transform:scale(0.7) }
       60%  { transform:scale(1.05) }
@@ -70,28 +74,30 @@ const db   = firebase.firestore();
 const { useState, useEffect, useRef } = React;
 const h = React.createElement;
 
-// ── 색상 상수 (원래 dark 테마 유지) ──────────────────────
-const PU   = "#9B6FC7";
-const PU2  = "#7B5EA7";
-const CARD = "#2A1F4A";
-const BDR  = "#3D2E6B";
-const PF   = { fontFamily:"'Press Start 2P'" };
+// ── 색상 ─────────────────────────────────────────────────
+const PU    = "#9B6FC7";
+const PU2   = "#7B5EA7";
+const INK   = "#1A1033";
+const TXT2  = "#7B5EA7";
+const CARD  = "rgba(255,255,255,0.72)";
+const BDR   = "rgba(155,111,199,0.28)";
+const BDR_A = "#9B6FC7";
+const INP   = "rgba(255,255,255,0.8)";
+const PF    = { fontFamily:"'Press Start 2P'" };
+const CELE  = ["#FF77A8","#FFCC54","#008751","#29ADFF","#AB47BC","#FF4136"];
 
-// Pico-8 축하 컬러
-const CELE = ["#FF77A8","#FFCC54","#008751","#29ADFF","#AB47BC","#FF4136"];
-
-// ── 카테고리 & 상수 ───────────────────────────────────────
+// ── 카테고리 & 상수 ────────────────────────────────────────
 const CATS = [
-  { id:"morning",    icon:"🌤️", label:"아침 컨디션", color:"#F5C842" },
-  { id:"evening",    icon:"🌙", label:"저녁 컨디션", color:"#7B8CDE" },
-  { id:"exercise",   icon:"💪", label:"운동",        color:"#FF6B6B" },
-  { id:"meal",       icon:"🍽️", label:"식사",        color:"#66BB6A" },
-  { id:"meditation", icon:"🧘", label:"명상",        color:"#AB47BC" },
-  { id:"hydration",  icon:"💧", label:"수분",        color:"#29B6F6" },
+  { id:"morning",    icon:"🌤️", label:"아침 컨디션", color:"#E8A020" },
+  { id:"evening",    icon:"🌙", label:"저녁 컨디션", color:"#5B6FD4" },
+  { id:"exercise",   icon:"💪", label:"운동",        color:"#E05050" },
+  { id:"meal",       icon:"🍽️", label:"식사",        color:"#3D9E45" },
+  { id:"meditation", icon:"🧘", label:"명상",        color:"#9B6FC7" },
+  { id:"hydration",  icon:"💧", label:"수분",        color:"#1A90C8" },
   { id:"bathroom",   icon:"🚽", label:"화장실",      color:"#8D6E63" },
-  { id:"emotion",    icon:"💭", label:"감정",        color:"#EF5350" },
-  { id:"activity",   icon:"📖", label:"활동",        color:"#7C6BC7" },
-  { id:"rest",       icon:"💤", label:"휴식",        color:"#6D7BD9" },
+  { id:"emotion",    icon:"💭", label:"감정",        color:"#D94040" },
+  { id:"activity",   icon:"📖", label:"활동",        color:"#6B5BC7" },
+  { id:"rest",       icon:"💤", label:"휴식",        color:"#5D6EC4" },
 ];
 const EMOTIONS = [
   {name:"까칠",emoji:"😒"},{name:"불안",emoji:"😟"},{name:"슬픔",emoji:"😢"},
@@ -111,7 +117,7 @@ const HYD_TYPES  = [
 const BATH_FEELS = ["매우 좋음","좋음","보통","불편","매우 불편"];
 const LV_EMOJI   = ["","😞","😕","😐","🙂","😊"];
 
-// ── 헬퍼 ──────────────────────────────────────────────────
+// ── 헬퍼 ─────────────────────────────────────────────────
 function getToday() {
   const d = new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));
   return d.toISOString().slice(0,10);
@@ -130,49 +136,60 @@ function fmtDate(s) { const [,m,d]=s.split("-"); return `${+m}월 ${+d}일`; }
 function toMin(hm) { if(!hm)return 0; const[H,M]=hm.split(":").map(Number); return H*60+M; }
 function fmtDur(min) { const H=Math.floor(min/60),M=min%60; return H?`${H}시간${M?` ${M}분`:""}`:M?`${M}분`:""; }
 
-// ── 공통 스타일 (원래 dark 테마) ─────────────────────────
+// ── 공통 스타일 (라이트 테마) ─────────────────────────────
 const inputSt = {
-  background: CARD, border:`2px solid ${BDR}`, borderRadius:10,
-  color:"#fff", padding:"12px 14px", fontSize:16, width:"100%", display:"block",
+  background: INP,
+  border: `1.5px solid ${BDR}`,
+  borderRadius: 10,
+  color: INK,
+  padding: "12px 14px",
+  fontSize: 16,
+  width: "100%",
+  display: "block",
 };
-const labelSt  = { fontSize:11, color:"#9B7FD4", fontWeight:700, marginBottom:6, display:"block", letterSpacing:1 };
+const labelSt  = { fontSize:11, color:TXT2, fontWeight:700, marginBottom:6, display:"block", letterSpacing:1 };
 const secSt    = { marginBottom:16 };
+const cardSt   = {
+  background: CARD,
+  border: `1.5px solid ${BDR}`,
+  borderRadius: 16,
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+};
 
 // ── Pico-8 저장 애니메이션 ────────────────────────────────
 function SaveAnim({ onDone }) {
   useEffect(()=>{ const t=setTimeout(onDone,1800); return()=>clearTimeout(t); },[]);
   const particles = CELE.map((c,i)=>({c, x:(i%3-1)*56, y:Math.floor(i/3)*52-26}));
   return h("div",{ style:{
-    position:"fixed", inset:0, background:"rgba(26,16,51,0.85)",
+    position:"fixed", inset:0, background:"rgba(26,16,51,0.6)",
+    backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)",
     display:"flex", alignItems:"center", justifyContent:"center",
     zIndex:999, animation:"saveIn 0.3s ease-out",
   }},
     h("div",{ style:{ position:"relative", textAlign:"center" } },
-      // 픽셀 파티클
       ...particles.map((p,i)=>h("div",{ key:i, style:{
         position:"absolute", top:"50%", left:"50%",
-        width:10, height:10, background:p.c,
-        borderRadius:0,
+        width:10, height:10, background:p.c, borderRadius:0,
         transform:`translate(calc(-50% + ${p.x}px), calc(-50% + ${p.y}px))`,
         animation:`pixelFloat 1s ease-out ${i*0.1}s both`,
         imageRendering:"pixelated",
       }})),
-      // 메인 카드
       h("div",{ style:{
-        background:CARD, border:`3px solid ${PU}`,
-        borderRadius:16, padding:"28px 40px", textAlign:"center",
+        ...cardSt, background:"rgba(255,255,255,0.92)",
+        padding:"28px 40px", textAlign:"center",
         position:"relative", zIndex:1,
-        boxShadow:"0 8px 32px rgba(0,0,0,0.4)",
+        boxShadow:"0 12px 40px rgba(155,111,199,0.3)",
       }},
         h("div",{ style:{
           width:52, height:52, margin:"0 auto 14px",
-          background:PU2, border:`3px solid ${PU}`, borderRadius:12,
+          background:PU, borderRadius:12,
           display:"flex", alignItems:"center", justifyContent:"center",
           animation:"checkPop 0.4s ease-out 0.2s both",
         }},
           h("span",{ style:{ ...PF, fontSize:16, color:"#fff" } },"✓")
         ),
-        h("div",{ style:{ ...PF, fontSize:9, color:"#FFCC54", letterSpacing:1, marginBottom:14 } },"SAVED!"),
+        h("div",{ style:{ ...PF, fontSize:9, color:PU, letterSpacing:1, marginBottom:14 } },"SAVED!"),
         h("div",{ style:{ display:"flex", gap:4, justifyContent:"center" } },
           CELE.map((c,i)=>h("div",{ key:i, style:{
             width:16, height:8, background:c,
@@ -207,14 +224,22 @@ function TimeInput({ value, onChange, label }) {
   };
   return h("div",null,
     label && h("label",{ style:labelSt },label),
-    h("div",{ style:{ display:"flex", gap:6, alignItems:"stretch" } },
+    h("div",{ style:{ display:"flex", gap:6, alignItems:"stretch", overflow:"visible" } },
       h("button",{ onClick:toggleAP, style:{
         background:PU, border:"none", color:"#fff",
-        cursor:"pointer", borderRadius:10, padding:"0 10px",
-        fontSize:14, fontWeight:800, flexShrink:0, minWidth:52, textAlign:"center",
+        cursor:"pointer", borderRadius:10, padding:"0 12px",
+        fontSize:13, fontWeight:800, flexShrink:0, minWidth:54, textAlign:"center",
       }},isAM?"오전":"오후"),
-      h("input",{ type:"time", value, onChange:e=>onChange(e.target.value),
-        style:{ ...inputSt, flex:1, minWidth:0 } })
+      // wrapper div prevents the input from being clipped
+      h("div",{ style:{ flex:1, minWidth:0, overflow:"visible" } },
+        h("input",{ type:"time", value, onChange:e=>onChange(e.target.value),
+          style:{
+            ...inputSt,
+            width:"100%",
+            paddingRight:8,  // give clock icon breathing room
+          }
+        })
+      )
     )
   );
 }
@@ -234,8 +259,9 @@ function LevelPicker({ value, onChange }) {
         key:n, onClick:()=>onChange(n),
         style:{
           flex:1, padding:"10px 0", cursor:"pointer",
-          border:`2px solid ${value===n?PU:BDR}`, borderRadius:10,
-          background:value===n?PU:CARD, color:"#fff",
+          border:`1.5px solid ${value===n?PU:BDR}`, borderRadius:10,
+          background:value===n?PU:"rgba(255,255,255,0.5)",
+          color:value===n?"#fff":INK,
           display:"flex", flexDirection:"column", alignItems:"center", gap:4,
         }
       },
@@ -243,7 +269,7 @@ function LevelPicker({ value, onChange }) {
         h("span",{ style:{ fontSize:12, fontWeight:700 } },n)
       ))
     ),
-    h("div",{ style:{ display:"flex", justifyContent:"space-between", marginTop:5, fontSize:11, color:"#9B7FD4" } },
+    h("div",{ style:{ display:"flex", justifyContent:"space-between", marginTop:5, fontSize:11, color:TXT2 } },
       h("span",null,"😞 나쁨"),h("span",null,"좋음 😊")
     )
   );
@@ -256,28 +282,29 @@ function ScaleRow({ options, value, onChange }) {
       style:{
         padding:"9px 2px", borderRadius:8, cursor:"pointer",
         fontSize:10, fontWeight:700, lineHeight:1.4, textAlign:"center",
-        border:`2px solid ${value===opt?PU:BDR}`,
-        background:value===opt?PU:CARD, color:"#fff", wordBreak:"keep-all",
+        border:`1.5px solid ${value===opt?PU:BDR}`,
+        background:value===opt?PU:"rgba(255,255,255,0.5)",
+        color:value===opt?"#fff":INK, wordBreak:"keep-all",
       }
     },opt))
   );
 }
 
-function FormWrap({ title, onCancel, onSave, children, saveLabel="저장" }) {
+function FormWrap({ title, onCancel, onSave, children }) {
   return h("div",null,
     h("div",{ style:{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 } },
       h("button",{ onClick:onCancel, style:{ background:"none", border:"none", color:PU, fontSize:15, fontWeight:700, cursor:"pointer", padding:"4px 0" } },"← 뒤로"),
-      h("span",{ style:{ fontSize:15, fontWeight:800 } },title)
+      h("span",{ style:{ fontSize:15, fontWeight:800, color:INK } },title)
     ),
     children,
     h("button",{ onClick:onSave, style:{
       background:PU, color:"#fff", border:"none", borderRadius:12,
       padding:"16px 0", fontSize:16, fontWeight:800, cursor:"pointer", width:"100%", marginTop:8
-    }},saveLabel)
+    }},"저장")
   );
 }
 
-// ── 폼들 ──────────────────────────────────────────────────
+// ── 폼들 ─────────────────────────────────────────────────
 function MorningForm({entry,onSave,onCancel}) {
   const ex=entry?.morning;
   const [lv,setLv]=useState(ex?.level??null);
@@ -293,7 +320,7 @@ function MorningForm({entry,onSave,onCancel}) {
     h("div",{style:{...secSt,display:"flex",alignItems:"center",gap:10}},
       h("input",{type:"checkbox",id:"period",checked:period,onChange:e=>setPeriod(e.target.checked),
         style:{width:20,height:20,accentColor:"#FF77A8",cursor:"pointer"}}),
-      h("label",{htmlFor:"period",style:{...labelSt,margin:0,cursor:"pointer",color:"#ff9eb5"}},"🩸 생리 중")
+      h("label",{htmlFor:"period",style:{...labelSt,margin:0,cursor:"pointer",color:"#D06080"}},"🩸 생리 중")
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:note,onChange:setNote}))
   );
@@ -321,7 +348,7 @@ function ExerciseForm({entry,onSave,onCancel,editEv}) {
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
   return h(FormWrap,{title:"💪 운동",onCancel,onSave:()=>{
     const ev={id:editEv?.id??uid6(),type:"exercise",time:start,endTime:end,duration:dur(),memo};
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
@@ -336,7 +363,7 @@ function MealForm({entry,onSave,onCancel,editEv}) {
   const [feel,setFeel]=useState(editEv?.feel??null);
   return h(FormWrap,{title:"🍽️ 식사",onCancel,onSave:()=>{
     const ev={id:editEv?.id??uid6(),type:"meal",time:start,endTime:end,label,feel};
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
@@ -359,7 +386,7 @@ function MeditationForm({entry,onSave,onCancel,editEv}) {
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
   return h(FormWrap,{title:"🧘 명상",onCancel,onSave:()=>{
     const ev={id:editEv?.id??uid6(),type:"meditation",time:start,endTime:end,duration:dur(),lotus,memo};
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
@@ -383,15 +410,16 @@ function HydrationForm({entry,onSave,onCancel,editEv}) {
     const ev={id:editEv?.id??uid6(),type:"hydration",time,hydType,label};
     if(ht.ml)   ev.amountMl=Number(amount)||0;
     if(ht.cups) ev.cups=Number(cups)||1;
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:{...secSt,display:"flex",gap:6,flexWrap:"wrap"}},
       HYD_TYPES.map(t=>h("button",{
         key:t.key, onClick:()=>setHydType(t.key),
         style:{padding:"9px 14px",borderRadius:10,
-          border:`2px solid ${hydType===t.key?PU:BDR}`,
-          background:hydType===t.key?PU:CARD,color:"#fff",
+          border:`1.5px solid ${hydType===t.key?PU:BDR}`,
+          background:hydType===t.key?PU:"rgba(255,255,255,0.5)",
+          color:hydType===t.key?"#fff":INK,
           fontSize:13,fontWeight:700,cursor:"pointer"}
       },t.label))
     ),
@@ -417,7 +445,7 @@ function BathroomForm({entry,onSave,onCancel,editEv}) {
   const [memo,setMemo]=useState(editEv?.memo??"");
   return h(FormWrap,{title:"🚽 화장실",onCancel,onSave:()=>{
     const ev={id:editEv?.id??uid6(),type:"bathroom",time,feel,memo};
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
@@ -436,7 +464,7 @@ function EmotionForm({entry,onSave,onCancel,editEv}) {
   return h(FormWrap,{title:"💭 감정",onCancel,onSave:()=>{
     if(!emotion)return alert("감정을 선택해줘요");
     const ev={id:editEv?.id??uid6(),type:"emotion",time,name:emotion,memo};
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
@@ -446,8 +474,9 @@ function EmotionForm({entry,onSave,onCancel,editEv}) {
         EMOTIONS.map(({name,emoji})=>h("button",{
           key:name, onClick:()=>setEmotion(name),
           style:{padding:"10px 0",borderRadius:8,
-            border:`2px solid ${emotion===name?PU:BDR}`,
-            background:emotion===name?PU:CARD,color:"#fff",cursor:"pointer",
+            border:`1.5px solid ${emotion===name?PU:BDR}`,
+            background:emotion===name?PU:"rgba(255,255,255,0.5)",
+            color:emotion===name?"#fff":INK,cursor:"pointer",
             display:"flex",flexDirection:"column",alignItems:"center",gap:3}
         },
           h("span",{style:{fontSize:20}},emoji),
@@ -466,7 +495,7 @@ function ActivityForm({entry,onSave,onCancel,editEv}) {
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
   return h(FormWrap,{title:"📖 활동",onCancel,onSave:()=>{
     const ev={id:editEv?.id??uid6(),type:"activity",time:start,endTime:end,duration:dur(),memo};
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
@@ -481,7 +510,7 @@ function RestForm({entry,onSave,onCancel,editEv}) {
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
   return h(FormWrap,{title:"💤 휴식",onCancel,onSave:()=>{
     const ev={id:editEv?.id??uid6(),type:"rest",time:start,endTime:end,duration:dur(),memo};
-    const evs=editEv ? (entry.events||[]).map(e=>e.id===editEv.id?ev:e) : [...(entry.events||[]),ev];
+    const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
@@ -489,9 +518,9 @@ function RestForm({entry,onSave,onCancel,editEv}) {
   );
 }
 
-// ── 오늘의 흐름 (수정/삭제 포함) ─────────────────────────
+// ── 오늘의 흐름 ───────────────────────────────────────────
 function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteEvent }) {
-  if(!entry) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}},"오늘 기록이 없어요");
+  if(!entry) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"오늘 기록이 없어요");
   const catMap=Object.fromEntries(CATS.map(c=>[c.id,c]));
   const items=[];
   if(entry.morning?.wakeTime) items.push({time:entry.morning.wakeTime,type:"wake",data:entry.morning});
@@ -499,16 +528,16 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
   if(entry.evening?.bedTime) items.push({time:entry.evening.bedTime,type:"bed",data:entry.evening});
   items.sort((a,b)=>toMin(a.time)-toMin(b.time));
 
-  if(!items.length) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}},"기록이 없어요");
+  if(!items.length) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"기록이 없어요");
 
   const editBtnSt = {
-    background:"none", border:`1px solid ${BDR}`, color:"#9B7FD4",
+    background:"rgba(255,255,255,0.6)", border:`1px solid ${BDR}`, color:TXT2,
     fontSize:11, fontWeight:700, cursor:"pointer",
-    padding:"3px 8px", borderRadius:6,
+    padding:"3px 10px", borderRadius:6,
   };
 
   return h("div",null,items.map((item,i)=>{
-    let icon="",text="",sub="",color="#3D2E6B";
+    let icon="",text="",sub="",color=BDR;
     if(item.type==="wake"){
       icon="🌤️"; color=CATS[0].color;
       text=`기상 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
@@ -518,7 +547,7 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
       text=`취침 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
       sub=item.data.note||"";
     } else {
-      const cat=catMap[item.type]; icon=cat?.icon||"·"; color=cat?.color||"#3D2E6B";
+      const cat=catMap[item.type]; icon=cat?.icon||"·"; color=cat?.color||BDR;
       if(item.type==="exercise")   text=`운동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
       else if(item.type==="meal")  text=`식사${item.data.label?` · ${item.data.label}`:""}${item.data.feel?` · ${item.data.feel}`:""}`;
       else if(item.type==="meditation") text=`명상${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.lotus?" · 결가부좌":""}`;
@@ -531,13 +560,12 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
     }
     return h("div",{key:i,style:{display:"flex",gap:12,paddingBottom:16,alignItems:"flex-start"}},
       h("div",{style:{textAlign:"right",minWidth:42,paddingTop:1}},
-        h("span",{style:{fontSize:12,color:"#9B7FD4",fontVariantNumeric:"tabular-nums",fontWeight:700}},item.time)
+        h("span",{style:{fontSize:12,color:TXT2,fontVariantNumeric:"tabular-nums",fontWeight:700}},item.time)
       ),
-      h("div",{style:{width:2,background:color,flexShrink:0,marginTop:4,minHeight:24}}),
+      h("div",{style:{width:2,background:color,flexShrink:0,marginTop:4,minHeight:24,borderRadius:2}}),
       h("div",{style:{flex:1}},
-        h("div",{style:{fontSize:13,fontWeight:700,lineHeight:1.5}},icon+" "+text),
-        sub && h("div",{style:{fontSize:12,color:"#9B7FD4",marginTop:2,lineHeight:1.4}},sub),
-        // 수정/삭제 버튼
+        h("div",{style:{fontSize:13,fontWeight:700,lineHeight:1.5,color:INK}},icon+" "+text),
+        sub && h("div",{style:{fontSize:12,color:TXT2,marginTop:2,lineHeight:1.4}},sub),
         h("div",{style:{display:"flex",gap:6,marginTop:6}},
           item.type==="wake"
             ? h("button",{onClick:onEditMorning,style:editBtnSt},"✏️ 수정")
@@ -547,7 +575,7 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
           item.type!=="wake" && item.type!=="bed" &&
             h("button",{
               onClick:()=>{ if(confirm("삭제할까요?")) onDeleteEvent(item.data.id); },
-              style:{...editBtnSt,color:"#EF5350",borderColor:"#EF535066"}
+              style:{...editBtnSt,color:"#C04040",borderColor:"rgba(192,64,64,0.3)"}
             },"🗑 삭제")
         )
       )
@@ -555,7 +583,7 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
   }));
 }
 
-// ── 보관함 ────────────────────────────────────────────────
+// ── 보관함 ───────────────────────────────────────────────
 function Archive({ user }) {
   const [days,setDays]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -575,14 +603,14 @@ function Archive({ user }) {
     load();
   },[user]);
 
-  if(loading) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}},"불러오는 중...");
-  if(!days.length) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}},"이전 기록이 없어요");
+  if(loading) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"불러오는 중...");
+  if(!days.length) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"이전 기록이 없어요");
 
   if(selected) return h("div",null,
     h("button",{onClick:()=>{setSelected(null);setSelEntry(null);},
       style:{background:"none",border:"none",color:PU,fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:20}
     },"← 목록"),
-    h("div",{style:{fontSize:16,fontWeight:800,marginBottom:16}},fmtDate(selected)),
+    h("div",{style:{fontSize:16,fontWeight:800,marginBottom:16,color:INK}},fmtDate(selected)),
     h(TodayFlow,{entry:selEntry,onEditMorning:()=>{},onEditEvening:()=>{},onEditEvent:()=>{},onDeleteEvent:()=>{}})
   );
 
@@ -594,14 +622,16 @@ function Archive({ user }) {
       return h("button",{
         key:date, onClick:()=>{setSelected(date);setSelEntry(en);},
         style:{
-          width:"100%",background:CARD,border:`2px solid ${BDR}`,borderRadius:12,
-          padding:"14px 16px",marginBottom:10,cursor:"pointer",textAlign:"left",
-          display:"flex",alignItems:"center",justifyContent:"space-between",
+          ...cardSt,
+          width:"100%", padding:"14px 16px", marginBottom:10,
+          cursor:"pointer", textAlign:"left",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          border:`1.5px solid ${BDR}`,
         }
       },
         h("div",null,
-          h("div",{style:{fontSize:14,fontWeight:800,color:"#fff",marginBottom:4}},fmtDate(date)),
-          h("div",{style:{fontSize:12,color:"#9B7FD4"}},`이벤트 ${evCount}개`)
+          h("div",{style:{fontSize:14,fontWeight:800,color:INK,marginBottom:4}},fmtDate(date)),
+          h("div",{style:{fontSize:12,color:TXT2}},`이벤트 ${evCount}개`)
         ),
         h("div",{style:{display:"flex",gap:8,alignItems:"center"}},
           mLv && h("span",{style:{fontSize:18}},LV_EMOJI[mLv]),
@@ -613,7 +643,7 @@ function Archive({ user }) {
   );
 }
 
-// ── 카테고리 그리드 ────────────────────────────────────────
+// ── 카테고리 그리드 ───────────────────────────────────────
 function CategoryGrid({ entry, onSelect }) {
   const logged=new Set();
   if(entry?.morning?.level) logged.add("morning");
@@ -626,21 +656,22 @@ function CategoryGrid({ entry, onSelect }) {
       return h("button",{
         key:cat.id, onClick:()=>onSelect(cat.id),
         style:{
-          background:CARD, border:`2px solid ${done?cat.color:BDR}`,
+          ...cardSt,
+          border:`1.5px solid ${done?cat.color:BDR}`,
           borderRadius:16, padding:"18px 0", cursor:"pointer",
-          display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+          display:"flex", flexDirection:"column", alignItems:"center", gap:6,
           position:"relative",
         }
       },
         done && h("div",{style:{position:"absolute",top:8,right:10,fontSize:11,color:cat.color,fontWeight:800}},"✓"),
         h("span",{style:{fontSize:26}},cat.icon),
-        h("span",{style:{fontSize:12,fontWeight:700,color:"#fff",lineHeight:1.4,textAlign:"center",padding:"0 4px"}},cat.label)
+        h("span",{style:{fontSize:12,fontWeight:700,color:INK,lineHeight:1.4,textAlign:"center",padding:"0 4px"}},cat.label)
       );
     })
   );
 }
 
-// ── 메인 앱 ──────────────────────────────────────────────
+// ── 메인 앱 ─────────────────────────────────────────────
 function QuickApp() {
   const [user,setUser]=useState(null);
   const [loading,setLoading]=useState(true);
@@ -682,11 +713,11 @@ function QuickApp() {
     setTab("기록");
   };
 
-  if(loading) return h("div",{style:{textAlign:"center",paddingTop:80,color:"#9B7FD4",fontSize:14}},"로딩 중...");
+  if(loading) return h("div",{style:{textAlign:"center",paddingTop:80,color:TXT2,fontSize:14}},"로딩 중...");
 
   if(!user) return h("div",{style:{maxWidth:360,margin:"0 auto",padding:"120px 24px 0",textAlign:"center"}},
     h("div",{style:{...PF,fontSize:14,color:PU,marginBottom:8,lineHeight:1.8}},"BALANCE"),
-    h("div",{style:{color:"#9B7FD4",marginBottom:40,fontSize:13}},"빠른 기록"),
+    h("div",{style:{color:TXT2,marginBottom:40,fontSize:13}},"빠른 기록"),
     h("button",{
       onClick:()=>{const p=new firebase.auth.GoogleAuthProvider();auth.signInWithPopup(p);},
       style:{background:PU,color:"#fff",border:"none",borderRadius:14,padding:"16px 0",
@@ -719,24 +750,24 @@ function QuickApp() {
 
     saveAnim && h(SaveAnim,{onDone:()=>setSaveAnim(false)}),
 
-    // ── 헤더 (반투명 frosted glass) ──
+    // 헤더
     h("div",{style:{
       padding:"20px 16px 14px",
-      borderBottom:`1px solid rgba(155,111,199,0.3)`,
-      background:"rgba(26,16,51,0.35)",
-      backdropFilter:"blur(12px)",
-      WebkitBackdropFilter:"blur(12px)",
+      borderBottom:`1px solid ${BDR}`,
       display:"flex", alignItems:"center", justifyContent:"space-between",
     }},
       h("div",null,
         h("div",{style:{...PF,fontSize:10,color:PU,letterSpacing:1,marginBottom:3}},"BALANCE"),
-        h("div",{style:{fontSize:16,fontWeight:800}},`${+mo}월 ${+dd}일`)
+        h("div",{style:{fontSize:16,fontWeight:800,color:INK}},`${+mo}월 ${+dd}일`)
       ),
-      h("a",{href:"index.html",style:{fontSize:11,color:"#9B7FD4",textDecoration:"none",
-        padding:"6px 10px",background:"rgba(42,31,74,0.8)",borderRadius:8}},"전체 앱 →")
+      h("a",{href:"index.html",style:{
+        fontSize:11,color:TXT2,textDecoration:"none",
+        padding:"6px 10px",background:"rgba(255,255,255,0.6)",
+        border:`1px solid ${BDR}`,borderRadius:8
+      }},"전체 앱 →")
     ),
 
-    // ── 본문 ──
+    // 본문
     h("div",{style:{padding:"16px 16px 0"}},
       activeForm
         ? FORMS[activeForm]
@@ -751,13 +782,13 @@ function QuickApp() {
         : h(Archive,{user})
     ),
 
-    // ── 하단 탭 ──
+    // 하단 탭
     h("div",{style:{
       position:"fixed",bottom:0,left:0,right:0,
-      background:"rgba(26,16,51,0.9)",
-      backdropFilter:"blur(12px)",
-      WebkitBackdropFilter:"blur(12px)",
-      borderTop:`1px solid rgba(155,111,199,0.3)`,
+      background:"rgba(255,255,255,0.82)",
+      backdropFilter:"blur(16px)",
+      WebkitBackdropFilter:"blur(16px)",
+      borderTop:`1px solid ${BDR}`,
       display:"flex",justifyContent:"space-around",padding:"10px 0 20px",
       maxWidth:440,margin:"0 auto",
     }},
@@ -765,7 +796,7 @@ function QuickApp() {
         key:t.key, onClick:()=>{setActiveForm(null);setEditEv(null);setTab(t.key);},
         style:{
           background:"none",border:"none",cursor:"pointer",
-          color:tab===t.key&&!activeForm?PU:"rgba(155,111,199,0.6)",
+          color:tab===t.key&&!activeForm?PU:"rgba(155,111,199,0.45)",
           fontWeight:700,fontSize:12,fontFamily:"inherit",
           display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 20px",
         }
