@@ -56,12 +56,7 @@ jobs:
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_KEY_JSON }}
         run: |
-          python3 -c "
-import os, json
-data = json.loads(os.environ['FIREBASE_KEY'])
-open('/tmp/firebase-key.pem', 'w').write(data['private_key'])
-print('PEM written, length:', len(data['private_key']))
-"
+          python3 -c "import os,json; d=json.loads(os.environ['FIREBASE_KEY']); open('/tmp/firebase-key.pem','w').write(d['private_key']); print('PEM written, len:', len(d['private_key']))"
 
       - name: Get Firestore access token
         id: auth
