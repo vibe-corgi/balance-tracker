@@ -117,8 +117,43 @@ const HYD_TYPES  = [
   { key:"commercial", label:"시판음료", ml:false },
   { key:"health",     label:"건강음료", cups:true},
 ];
-const BATH_FEELS = ["매우 좋음","좋음","보통","불편","매우 불편"];
-const LV_EMOJI   = ["","😞","😕","😐","🙂","😊"];
+const BATH_FEELS  = ["매우 좋음","좋음","보통","불편","매우 불편"];
+const BATH_SCORE  = {"매우 좋음":100,"좋음":80,"보통":60,"불편":40,"매우 불편":20};
+const LV_EMOJI    = ["","😞","😕","😐","🙂","😊"];
+
+function computeQuickScore(entry) {
+  if(!entry) return null;
+  const parts = [];
+  if(entry.morning) parts.push({key:"morning",  label:"☀️ 아침",  v:entry.morning.level/5*100, w:5,  val:`${entry.morning.level}/5`});
+  if(entry.evening) parts.push({key:"evening",  label:"🌙 저녁",  v:entry.evening.level/5*100, w:10, val:`${entry.evening.level}/5`});
+  const meals=(entry.events||[]).filter(e=>e.type==="meal");
+  const mealRated=meals.filter(e=>e.feel||e.hunger);
+  if(mealRated.length){
+    const fv=mealRated.reduce((a,e)=>{
+      const q=e.feel?(HEALTH_MAP[e.feel]??60):null;
+      const hv=e.hunger?(HUNGER_MAP[e.hunger]??null):null;
+      if(q!=null&&hv!=null)return a+q*0.6+hv*0.4;
+      if(q!=null)return a+q;
+      if(hv!=null)return a+hv;
+      return a+60;
+    },0)/mealRated.length;
+    parts.push({key:"food",      label:"🍽️ 식사",  v:fv,                         w:15, val:`${meals.length}회`});
+  }
+  const exMin=(entry.events||[]).filter(e=>e.type==="exercise").reduce((a,e)=>a+(e.duration||0),0);
+  if(exMin>0) parts.push({key:"exercise",  label:"💪 운동",  v:Math.min(100,exMin/30*100),  w:15, val:fmtDur(exMin)});
+  const medMin=(entry.events||[]).filter(e=>e.type==="meditation").reduce((a,e)=>a+(e.duration||0),0);
+  if(medMin>0) parts.push({key:"meditation",label:"🧘 명상",  v:Math.min(100,medMin/20*100), w:10, val:fmtDur(medMin)});
+  const hydMl=(entry.events||[]).filter(e=>e.type==="hydration"&&(e.hydType==="water"||e.hydType==="tea")).reduce((a,e)=>a+(Number(e.amountMl)||0),0);
+  if(hydMl>0) parts.push({key:"hydration", label:"💧 수분",  v:Math.min(100,hydMl/1500*100),w:10, val:`${(hydMl/1000).toFixed(1)}L`});
+  const bathEvs=(entry.events||[]).filter(e=>e.type==="bathroom"&&e.feel);
+  if(bathEvs.length){
+    const bv=bathEvs.reduce((a,e)=>a+(BATH_SCORE[e.feel]??60),0)/bathEvs.length;
+    parts.push({key:"bathroom",  label:"🚽 화장실",v:bv,                          w:5,  val:`${bathEvs.length}회`});
+  }
+  if(!parts.length) return null;
+  const total=Math.round(parts.reduce((a,p)=>a+p.v*p.w,0)/100);
+  return {total, parts};
+}
 
 // ── 헬퍼 ─────────────────────────────────────────────────
 function getToday() {
@@ -528,67 +563,129 @@ function RestForm({entry,onSave,onCancel,editEv}) {
 
 // ── 오늘의 흐름 ───────────────────────────────────────────
 function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteEvent }) {
+  const [showDetail, setShowDetail] = useState(false);
+
   if(!entry) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"오늘 기록이 없어요");
-  const catMap=Object.fromEntries(CATS.map(c=>[c.id,c]));
-  const items=[];
+
+  const score = computeQuickScore(entry);
+  const catMap = Object.fromEntries(CATS.map(c=>[c.id,c]));
+  const items = [];
   if(entry.morning?.wakeTime) items.push({time:entry.morning.wakeTime,type:"wake",data:entry.morning});
   (entry.events||[]).forEach(ev=>items.push({time:ev.time,type:ev.type,data:ev}));
   if(entry.evening?.bedTime) items.push({time:entry.evening.bedTime,type:"bed",data:entry.evening});
   items.sort((a,b)=>toMin(a.time)-toMin(b.time));
 
-  if(!items.length) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"기록이 없어요");
-
   const editBtnSt = {
     background:"rgba(255,255,255,0.6)", border:`1px solid ${BDR}`, color:TXT2,
-    fontSize:11, fontWeight:700, cursor:"pointer",
-    padding:"3px 10px", borderRadius:6,
+    fontSize:11, fontWeight:700, cursor:"pointer", padding:"3px 10px", borderRadius:6,
   };
 
-  return h("div",null,items.map((item,i)=>{
-    let icon="",text="",sub="",color=BDR;
-    if(item.type==="wake"){
-      icon="☀️"; color=CATS[0].color;
-      text=`기상 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
-      sub=item.data.note||"";
-    } else if(item.type==="bed"){
-      icon="🌙"; color=CATS[1].color;
-      text=`취침 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
-      sub=item.data.note||"";
-    } else {
-      const cat=catMap[item.type]; icon=cat?.icon||"·"; color=cat?.color||BDR;
-      if(item.type==="exercise")   text=`운동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else if(item.type==="meal")  text=`식사${item.data.hunger?` · ${item.data.hunger}`:""}${item.data.feel?` · ${item.data.feel}`:""}${item.data.label?` · ${item.data.label}`:""}`;
-      else if(item.type==="meditation") text=`명상${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.lotus?" · 결가부좌":""}`;
-      else if(item.type==="hydration")  text=`수분${item.data.amountMl?` · ${item.data.amountMl}ml`:""}${item.data.cups?` · ${item.data.cups}잔`:""}${item.data.label?` · ${item.data.label}`:""}`;
-      else if(item.type==="bathroom")   text=`화장실${item.data.feel?` · ${item.data.feel}`:""}`;
-      else if(item.type==="emotion")    text=`감정 · ${item.data.name||""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else if(item.type==="activity")   text=`활동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else if(item.type==="rest")       text=`휴식${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else text=cat?.label||item.type;
-    }
-    return h("div",{key:i,style:{display:"flex",gap:12,paddingBottom:16,alignItems:"flex-start"}},
-      h("div",{style:{textAlign:"right",minWidth:42,paddingTop:1}},
-        h("span",{style:{fontSize:12,color:TXT2,fontVariantNumeric:"tabular-nums",fontWeight:700}},item.time)
-      ),
-      h("div",{style:{width:2,background:color,flexShrink:0,marginTop:4,minHeight:24,borderRadius:2}}),
-      h("div",{style:{flex:1}},
-        h("div",{style:{fontSize:13,fontWeight:700,lineHeight:1.5,color:INK}},icon+" "+text),
-        sub && h("div",{style:{fontSize:12,color:TXT2,marginTop:2,lineHeight:1.4}},sub),
-        h("div",{style:{display:"flex",gap:6,marginTop:6}},
-          item.type==="wake"
-            ? h("button",{onClick:onEditMorning,style:editBtnSt},"✏️ 수정")
-            : item.type==="bed"
-            ? h("button",{onClick:onEditEvening,style:editBtnSt},"✏️ 수정")
-            : h("button",{onClick:()=>onEditEvent(item.data),style:editBtnSt},"✏️ 수정"),
-          item.type!=="wake" && item.type!=="bed" &&
-            h("button",{
-              onClick:()=>{ if(confirm("삭제할까요?")) onDeleteEvent(item.data.id); },
-              style:{...editBtnSt,color:"#C04040",borderColor:"rgba(192,64,64,0.3)"}
-            },"🗑 삭제")
+  // ── 점수 카드 ──
+  const scoreCard = h("div",{style:{
+    ...cardSt, padding:"16px 18px", marginBottom:16,
+    boxShadow:"0 2px 12px rgba(155,111,199,0.12)",
+  }},
+    h("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}},
+      h("div",null,
+        h("div",{style:{fontSize:11,color:TXT2,fontWeight:700,letterSpacing:1,marginBottom:6}},"오늘 컨디션 점수"),
+        h("div",{style:{display:"flex",alignItems:"baseline",gap:4}},
+          h("span",{style:{...PF,fontSize:30,color:PU,lineHeight:1}}, score ? score.total : "—"),
+          score && h("span",{style:{fontSize:13,color:TXT2,fontWeight:700}},"점")
+        ),
+        h("div",{style:{display:"flex",gap:12,marginTop:8}},
+          entry.morning && h("span",{style:{fontSize:13,color:INK,fontWeight:700}},`☀️ ${entry.morning.level}/5`),
+          entry.evening && h("span",{style:{fontSize:13,color:INK,fontWeight:700}},`🌙 ${entry.evening.level}/5`),
+          !entry.morning && !entry.evening && h("span",{style:{fontSize:12,color:TXT2}},"컨디션 미기록")
         )
+      ),
+      score && h("button",{
+        onClick:()=>setShowDetail(v=>!v),
+        style:{
+          width:28,height:28,borderRadius:"50%",
+          background:showDetail?INK:PU,border:"none",
+          color:"#fff",fontWeight:900,fontSize:14,cursor:"pointer",
+          flexShrink:0,
+        }
+      },"!")
+    ),
+    showDetail && score && h("div",{style:{
+      marginTop:14,paddingTop:14,borderTop:`1px solid ${BDR}`,
+    }},
+      score.parts.map(p=>h("div",{key:p.key,style:{
+        display:"flex",alignItems:"center",gap:8,marginBottom:10,
+      }},
+        h("span",{style:{fontSize:12,color:INK,fontWeight:700,minWidth:80}},p.label),
+        h("div",{style:{
+          flex:1,background:"rgba(155,111,199,0.12)",borderRadius:4,height:6,overflow:"hidden",
+        }},
+          h("div",{style:{height:"100%",background:PU,width:`${p.v}%`,borderRadius:4,transition:"width 0.4s ease"}})
+        ),
+        h("span",{style:{fontSize:11,color:TXT2,fontWeight:700,minWidth:32,textAlign:"right"}},p.val),
+        h("span",{style:{fontSize:11,color:PU,fontWeight:800,minWidth:30,textAlign:"right"}},`${Math.round(p.v)}점`)
+      )),
+      h("div",{style:{
+        marginTop:8,paddingTop:8,borderTop:`1px solid ${BDR}`,
+        display:"flex",justifyContent:"space-between",alignItems:"center",
+      }},
+        h("span",{style:{fontSize:11,color:TXT2}},"수면·공복 점수는 웹 앱에서 확인"),
+        h("span",{style:{...PF,fontSize:9,color:PU}},`합계 ${score.total}점`)
       )
-    );
-  }));
+    )
+  );
+
+  if(!items.length) return h("div",null,
+    scoreCard,
+    h("div",{style:{textAlign:"center",color:TXT2,paddingTop:20,fontSize:13}},"타임라인 기록이 없어요")
+  );
+
+  return h("div",null,
+    scoreCard,
+    items.map((item,i)=>{
+      let icon="",text="",sub="",color=BDR;
+      if(item.type==="wake"){
+        icon="☀️"; color=CATS[0].color;
+        text=`기상 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
+        sub=item.data.note||"";
+      } else if(item.type==="bed"){
+        icon="🌙"; color=CATS[1].color;
+        text=`취침 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
+        sub=item.data.note||"";
+      } else {
+        const cat=catMap[item.type]; icon=cat?.icon||"·"; color=cat?.color||BDR;
+        if(item.type==="exercise")   text=`운동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
+        else if(item.type==="meal")  text=`식사${item.data.hunger?` · ${item.data.hunger}`:""}${item.data.feel?` · ${item.data.feel}`:""}${item.data.label?` · ${item.data.label}`:""}`;
+        else if(item.type==="meditation") text=`명상${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.lotus?" · 결가부좌":""}`;
+        else if(item.type==="hydration")  text=`수분${item.data.amountMl?` · ${item.data.amountMl}ml`:""}${item.data.cups?` · ${item.data.cups}잔`:""}${item.data.label?` · ${item.data.label}`:""}`;
+        else if(item.type==="bathroom")   text=`화장실${item.data.feel?` · ${item.data.feel}`:""}`;
+        else if(item.type==="emotion")    text=`감정 · ${item.data.name||""}${item.data.memo?` · ${item.data.memo}`:""}`;
+        else if(item.type==="activity")   text=`활동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
+        else if(item.type==="rest")       text=`휴식${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
+        else text=cat?.label||item.type;
+      }
+      return h("div",{key:i,style:{display:"flex",gap:12,paddingBottom:16,alignItems:"flex-start"}},
+        h("div",{style:{textAlign:"right",minWidth:42,paddingTop:1}},
+          h("span",{style:{fontSize:12,color:TXT2,fontVariantNumeric:"tabular-nums",fontWeight:700}},item.time)
+        ),
+        h("div",{style:{width:2,background:color,flexShrink:0,marginTop:4,minHeight:24,borderRadius:2}}),
+        h("div",{style:{flex:1}},
+          h("div",{style:{fontSize:13,fontWeight:700,lineHeight:1.5,color:INK}},icon+" "+text),
+          sub && h("div",{style:{fontSize:12,color:TXT2,marginTop:2,lineHeight:1.4}},sub),
+          h("div",{style:{display:"flex",gap:6,marginTop:6}},
+            item.type==="wake"
+              ? h("button",{onClick:onEditMorning,style:editBtnSt},"✏️ 수정")
+              : item.type==="bed"
+              ? h("button",{onClick:onEditEvening,style:editBtnSt},"✏️ 수정")
+              : h("button",{onClick:()=>onEditEvent(item.data),style:editBtnSt},"✏️ 수정"),
+            item.type!=="wake" && item.type!=="bed" &&
+              h("button",{
+                onClick:()=>{ if(confirm("삭제할까요?")) onDeleteEvent(item.data.id); },
+                style:{...editBtnSt,color:"#C04040",borderColor:"rgba(192,64,64,0.3)"}
+              },"🗑 삭제")
+          )
+        )
+      );
+    })
+  );
 }
 
 // ── 보관함 ───────────────────────────────────────────────
