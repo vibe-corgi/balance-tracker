@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="발란스">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <meta name="theme-color" content="#FFF1E8">
+  <meta name="theme-color" content="#FFFFFF">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -18,14 +18,14 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; background: #FFF1E8; }
+    html, body { height: 100%; background: #FFFFFF; }
     body { font-family: 'Galmuri11', -apple-system, sans-serif; color: #1D2B53; }
     input, textarea, select, button { font-family: inherit; }
     input[type="time"] { color-scheme: light; }
     input:focus, textarea:focus { outline: none; }
     textarea { resize: none; overflow: hidden; }
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #FFF1E8; }
+    ::-webkit-scrollbar-track { background: #FFFFFF; }
     ::-webkit-scrollbar-thumb { background: #C2C3C7; border-radius: 2px; }
     @keyframes xpGrow { from { width: 0 } }
     @keyframes saveIn {
@@ -66,7 +66,7 @@ const { useState, useEffect, useRef, useCallback } = React;
 const h = React.createElement;
 
 // ── Pico-8 팔레트 ─────────────────────────────────────────
-const BG    = "#FFF1E8";
+const BG    = "#FFFFFF";
 const DARK  = "#1D2B53";
 const PINK  = "#FF77A8";
 const YEL   = "#FFCC54";
@@ -75,6 +75,7 @@ const BRN   = "#AB5236";
 const LGRAY = "#C2C3C7";
 const TXT2  = "#5F574F";
 const WHITE = "#FFFFFF";
+const PU    = "#9B6FC7";   // 파스텔 보라 (하단 탭)
 
 // ── 카테고리 & 상수 ───────────────────────────────────────
 const CATS = [
@@ -170,73 +171,56 @@ const labelSt = {
 };
 const secSt = { marginBottom:14 };
 
-// ── XP 바 ─────────────────────────────────────────────────
-function XPBar({ entry }) {
-  const xp = calcXP(entry);
-  const { lv, title, bar } = getLv(xp);
-  return h("div", { style:{ padding:"6px 0 2px" } },
-    h("div",{ style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 } },
-      h("span",{ style:{ ...PF, fontSize:7, color:TXT2 } }, `LV.${lv} ${title}`),
-      h("span",{ style:{ ...PF, fontSize:7, color:DARK } }, `${xp}/100 XP`)
-    ),
-    h("div",{ style:{
-      background:LGRAY, height:8, borderRadius:1,
-      border:`2px solid ${DARK}`, overflow:"hidden",
-    }},
-      h("div",{ style:{
-        width:`${xp}%`, height:"100%", background:bar,
-        animation:"xpGrow 0.6s ease-out",
-      }})
-    )
-  );
-}
 
-// ── 게임보이 저장 애니메이션 ──────────────────────────────
-function SaveAnim({ xp, onDone }) {
+// ── Pico-8 저장 애니메이션 ────────────────────────────────
+const PICO_STARS = [
+  {x:-38,y:-44,c:YEL,s:8},{x:38,y:-44,c:PINK,s:6},
+  {x:-50,y:0,c:GRN,s:7},{x:50,y:0,c:"#29ADFF",s:5},
+  {x:-32,y:44,c:PINK,s:6},{x:32,y:44,c:YEL,s:8},
+];
+function SaveAnim({ onDone }) {
   useEffect(()=>{ const t=setTimeout(onDone,1800); return()=>clearTimeout(t); },[]);
   return h("div",{ style:{
-    position:"fixed", inset:0, background:"rgba(29,43,83,0.85)",
+    position:"fixed", inset:0, background:"rgba(29,43,83,0.88)",
     display:"flex", alignItems:"center", justifyContent:"center",
     zIndex:999, animation:"saveIn 0.3s ease-out",
   }},
-    h("div",{ style:{
-      background:DARK, border:`4px solid ${LGRAY}`,
-      borderRadius:16, padding:"28px 32px", textAlign:"center",
-      boxShadow:`0 0 0 8px ${DARK}`,
-      animation:"saveIn 0.3s ease-out",
-    }},
-      // 게임보이 작은 아이콘
+    h("div",{ style:{ position:"relative", textAlign:"center" } },
+      // 픽셀 별 파티클
+      ...PICO_STARS.map((s,i)=>h("div",{ key:i, style:{
+        position:"absolute",
+        top:"50%", left:"50%",
+        width:s.s, height:s.s,
+        background:s.c,
+        transform:`translate(calc(-50% + ${s.x}px), calc(-50% + ${s.y}px))`,
+        animation:`saveIn 0.4s ease-out ${i*0.06}s both`,
+        imageRendering:"pixelated",
+      }})),
+      // 메인 카드
       h("div",{ style:{
-        width:56, height:56, margin:"0 auto 16px",
-        background:"#C2C3C7", borderRadius:8,
-        border:`3px solid ${LGRAY}`, position:"relative",
-        display:"flex", alignItems:"center", justifyContent:"center",
+        background:DARK, border:`4px solid ${LGRAY}`,
+        borderRadius:4, padding:"26px 36px", textAlign:"center",
+        position:"relative", zIndex:1,
       }},
+        // 픽셀 체크 아이콘
         h("div",{ style:{
-          width:32, height:24, background:DARK, borderRadius:2,
-          border:`2px solid ${LGRAY}`,
+          width:48, height:48, margin:"0 auto 14px",
+          background:GRN, border:`3px solid ${WHITE}`,
           display:"flex", alignItems:"center", justifyContent:"center",
+          animation:"checkPop 0.4s ease-out 0.2s both",
         }},
-          h("span",{ style:{ fontSize:14 } }, "✓")
+          h("span",{ style:{ ...PF, fontSize:14, color:WHITE } },"✓")
         ),
-        h("div",{ style:{
-          position:"absolute", bottom:6, left:"50%",
-          transform:"translateX(-50%)",
-          width:18, height:6, background:PINK, borderRadius:3,
-        }})
-      ),
-      h("div",{ style:{ ...PF, fontSize:9, color:YEL, letterSpacing:1, marginBottom:12 } },"SAVE COMPLETE!"),
-      xp>0 && h("div",{ style:{ ...PF, fontSize:8, color:PINK, marginBottom:14 } },`+${xp} XP`),
-      // 로딩 바
-      h("div",{ style:{
-        width:140, height:8, background:"#0D1B2A",
-        border:`2px solid ${LGRAY}`, borderRadius:1, overflow:"hidden",
-        margin:"0 auto",
-      }},
-        h("div",{ style:{
-          height:"100%", background:GRN,
-          animation:"barFill 1.4s ease-out forwards",
-        }})
+        h("div",{ style:{ ...PF, fontSize:9, color:YEL, letterSpacing:1, marginBottom:14 } },"SAVED!"),
+        // Pico-8 컬러 픽셀 바
+        h("div",{ style:{ display:"flex", gap:3, justifyContent:"center" } },
+          [PINK, YEL, GRN, "#29ADFF", PU, PINK].map((c,i)=>
+            h("div",{ key:i, style:{
+              width:14, height:8, background:c,
+              animation:`barFill 1.4s ease-out ${i*0.1}s both`,
+            }})
+          )
+        )
       )
     )
   );
@@ -347,7 +331,7 @@ function ChipRow({ options, value, onChange, color=PINK }) {
 }
 
 // ── FormWrap ──────────────────────────────────────────────
-function FormWrap({ title, onCancel, onSave, children, xp=0 }) {
+function FormWrap({ title, onCancel, onSave, children }) {
   return h("div",null,
     h("div",{ style:{ display:"flex", alignItems:"center", marginBottom:18 } },
       h("button",{ onClick:onCancel, style:{
@@ -358,19 +342,11 @@ function FormWrap({ title, onCancel, onSave, children, xp=0 }) {
       h("span",{ style:{ fontSize:14, fontWeight:800, color:DARK } },title)
     ),
     children,
-    // 저장 버튼
     h("button",{ onClick:onSave, style:{
       background:PINK, color:WHITE, border:"none",
-      borderRadius:10, padding:"0", fontSize:15, fontWeight:800,
-      cursor:"pointer", width:"100%", marginTop:10,
-      display:"flex", alignItems:"stretch", justifyContent:"space-between", overflow:"hidden",
-    }},
-      h("span",{ style:{ padding:"16px 0 16px 18px", flex:1 } },"▶  저장"),
-      xp>0 && h("span",{ style:{
-        ...PF, fontSize:8, background:YEL, color:DARK,
-        padding:"0 14px", display:"flex", alignItems:"center",
-      }},`+${xp}XP`)
-    )
+      borderRadius:10, padding:"16px 0", fontSize:15, fontWeight:800,
+      cursor:"pointer", width:"100%", marginTop:10, textAlign:"center",
+    }},"▶  저장")
   );
 }
 
@@ -381,9 +357,9 @@ function MorningForm({entry,onSave,onCancel}) {
   const [wake,setWake]=useState(ex?.wakeTime??nowHM());
   const [note,setNote]=useState(ex?.note??"");
   const [period,setPeriod]=useState(ex?.period??false);
-  return h(FormWrap,{title:"🌤️ 아침 컨디션",onCancel,xp:XP_MAP.morning,onSave:()=>{
+  return h(FormWrap,{title:"🌤️ 아침 컨디션",onCancel,onSave:()=>{
     if(!lv)return alert("컨디션을 선택해줘요");
-    onSave({...entry,morning:{level:lv,wakeTime:wake,note,period}},XP_MAP.morning);
+    onSave({...entry,morning:{level:lv,wakeTime:wake,note,period}});
   }},
     h("div",{style:secSt}, h("label",{style:labelSt},"컨디션"), h(LevelPicker,{value:lv,onChange:setLv})),
     h("div",{style:secSt}, h(TimeInput,{label:"기상 시간",value:wake,onChange:setWake})),
@@ -401,9 +377,9 @@ function EveningForm({entry,onSave,onCancel}) {
   const [lv,setLv]=useState(ex?.level??null);
   const [bed,setBed]=useState(ex?.bedTime??nowHM());
   const [note,setNote]=useState(ex?.note??"");
-  return h(FormWrap,{title:"🌙 저녁 컨디션",onCancel,xp:XP_MAP.evening,onSave:()=>{
+  return h(FormWrap,{title:"🌙 저녁 컨디션",onCancel,onSave:()=>{
     if(!lv)return alert("컨디션을 선택해줘요");
-    onSave({...entry,evening:{level:lv,bedTime:bed,note}},XP_MAP.evening);
+    onSave({...entry,evening:{level:lv,bedTime:bed,note}});
   }},
     h("div",{style:secSt}, h("label",{style:labelSt},"컨디션"), h(LevelPicker,{value:lv,onChange:setLv})),
     h("div",{style:secSt}, h(TimeInput,{label:"취침 시간",value:bed,onChange:setBed})),
@@ -417,8 +393,8 @@ function ExerciseForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"💪 운동",onCancel,xp:XP_MAP.exercise,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"exercise",time:start,endTime:end,duration:dur(),memo}]},XP_MAP.exercise);
+  return h(FormWrap,{title:"💪 운동",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"exercise",time:start,endTime:end,duration:dur(),memo}]});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"헬스장, 러닝, 홈트..."}))
@@ -431,8 +407,8 @@ function MealForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [label,setLabel]=useState("");
   const [feel,setFeel]=useState(null);
-  return h(FormWrap,{title:"🍽️ 식사",onCancel,xp:XP_MAP.meal,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meal",time:start,endTime:end,label,feel}]},XP_MAP.meal);
+  return h(FormWrap,{title:"🍽️ 식사",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meal",time:start,endTime:end,label,feel}]});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt},
@@ -453,8 +429,8 @@ function MeditationForm({entry,onSave,onCancel}) {
   const [lotus,setLotus]=useState(false);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"🧘 명상",onCancel,xp:XP_MAP.meditation,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meditation",time:start,endTime:end,duration:dur(),lotus,memo}]},XP_MAP.meditation);
+  return h(FormWrap,{title:"🧘 명상",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meditation",time:start,endTime:end,duration:dur(),lotus,memo}]});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:{...secSt,display:"flex",alignItems:"center",gap:10}},
@@ -473,11 +449,11 @@ function HydrationForm({entry,onSave,onCancel}) {
   const [cups,setCups]=useState("1");
   const [label,setLabel]=useState("");
   const ht=HYD_TYPES.find(x=>x.key===hydType);
-  return h(FormWrap,{title:"💧 수분",onCancel,xp:XP_MAP.hydration,onSave:()=>{
+  return h(FormWrap,{title:"💧 수분",onCancel,onSave:()=>{
     const ev={id:uid6(),type:"hydration",time,hydType,label};
     if(ht.ml)   ev.amountMl=Number(amount)||0;
     if(ht.cups) ev.cups=Number(cups)||1;
-    onSave({...entry,events:[...(entry.events||[]),ev]},XP_MAP.hydration);
+    onSave({...entry,events:[...(entry.events||[]),ev]});
   }},
     h("div",{style:{...secSt,display:"flex",gap:6,flexWrap:"wrap"}},
       HYD_TYPES.map(t=>h("button",{
@@ -509,8 +485,8 @@ function BathroomForm({entry,onSave,onCancel}) {
   const [time,setTime]=useState(nowHM());
   const [feel,setFeel]=useState(null);
   const [memo,setMemo]=useState("");
-  return h(FormWrap,{title:"🚽 화장실",onCancel,xp:XP_MAP.bathroom,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"bathroom",time,feel,memo}]},XP_MAP.bathroom);
+  return h(FormWrap,{title:"🚽 화장실",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"bathroom",time,feel,memo}]});
   }},
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
     h("div",{style:secSt},
@@ -525,9 +501,9 @@ function EmotionForm({entry,onSave,onCancel}) {
   const [time,setTime]=useState(nowHM());
   const [emotion,setEmotion]=useState(null);
   const [memo,setMemo]=useState("");
-  return h(FormWrap,{title:"💭 감정",onCancel,xp:XP_MAP.emotion,onSave:()=>{
+  return h(FormWrap,{title:"💭 감정",onCancel,onSave:()=>{
     if(!emotion)return alert("감정을 선택해줘요");
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"emotion",time,name:emotion,memo}]},XP_MAP.emotion);
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"emotion",time,name:emotion,memo}]});
   }},
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
     h("div",{style:secSt},
@@ -557,8 +533,8 @@ function ActivityForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"📖 활동",onCancel,xp:XP_MAP.activity,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"activity",time:start,endTime:end,duration:dur(),memo}]},XP_MAP.activity);
+  return h(FormWrap,{title:"📖 활동",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"activity",time:start,endTime:end,duration:dur(),memo}]});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"독서, 공부, 취미, 산책..."}))
@@ -571,8 +547,8 @@ function RestForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"💤 휴식",onCancel,xp:XP_MAP.rest,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"rest",time:start,endTime:end,duration:dur(),memo}]},XP_MAP.rest);
+  return h(FormWrap,{title:"💤 휴식",onCancel,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"rest",time:start,endTime:end,duration:dur(),memo}]});
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"낮잠, 멍때림, 음악 감상..."}))
@@ -777,9 +753,8 @@ function QuickApp() {
   const [entry,setEntry]=useState(null);
   const [activeForm,setActiveForm]=useState(null);
   const [tab,setTab]=useState("기록");
-  const [saveAnim,setSaveAnim]=useState(null); // {xp}
+  const [saveAnim,setSaveAnim]=useState(false);
   const today=getToday();
-  const dayNum=getDayNum();
 
   useEffect(()=>auth.onAuthStateChanged(u=>{setUser(u);setLoading(false);}),[]);
   useEffect(()=>{
@@ -791,10 +766,10 @@ function QuickApp() {
     });
   },[user]);
 
-  const saveEntry=async(updated,xp=0)=>{
+  const saveEntry=async(updated)=>{
     const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${today}`);
     await ref.set({value:JSON.stringify(updated)});
-    setSaveAnim({xp});
+    setSaveAnim(true);
     setActiveForm(null);
     setTab("오늘");
   };
@@ -835,28 +810,25 @@ function QuickApp() {
   return h("div",{style:{maxWidth:440,margin:"0 auto",paddingBottom:88,background:BG,minHeight:"100vh"}},
 
     // ── 저장 애니메이션 오버레이 ──
-    saveAnim && h(SaveAnim,{xp:saveAnim.xp,onDone:()=>setSaveAnim(null)}),
+    saveAnim && h(SaveAnim,{onDone:()=>setSaveAnim(false)}),
 
     // ── 헤더 ──
     h("div",{style:{
       background:BG,
       borderBottom:`2px solid ${LGRAY}`,
-      padding:"14px 16px 10px",
+      padding:"14px 16px 12px",
     }},
-      h("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
         h("div",null,
-          h("div",{style:{...PF,fontSize:12,color:DARK,letterSpacing:1,marginBottom:2}},"BALANCE"),
-          h("div",{style:{...PF,fontSize:8,color:GRN}},`DAY ${String(dayNum).padStart(3,"0")}`)
+          h("div",{style:{...PF,fontSize:11,color:DARK,letterSpacing:1,marginBottom:3}},"BALANCE"),
+          h("div",{style:{fontSize:17,fontWeight:800,color:DARK}},`${+mo}월 ${+dd}일`)
         ),
-        h("div",{style:{display:"flex",alignItems:"center",gap:8}},
-          h("a",{href:"index.html",style:{
-            fontSize:11,color:TXT2,textDecoration:"none",
-            padding:"5px 9px",background:WHITE,border:`2px solid ${LGRAY}`,
-            borderRadius:6,fontWeight:700,
-          }},"전체 앱 →")
-        )
-      ),
-      h(XPBar,{entry})
+        h("a",{href:"index.html",style:{
+          fontSize:11,color:TXT2,textDecoration:"none",
+          padding:"6px 10px",background:WHITE,border:`2px solid ${LGRAY}`,
+          borderRadius:6,fontWeight:700,
+        }},"전체 앱 →")
+      )
     ),
 
     // ── 본문 ──
@@ -871,7 +843,7 @@ function QuickApp() {
     // ── 하단 탭 ──
     h("div",{style:{
       position:"fixed",bottom:0,left:0,right:0,
-      background:DARK,
+      background:PU,
       display:"flex",justifyContent:"space-around",
       padding:"10px 0 22px",
       maxWidth:440,margin:"0 auto",
@@ -880,7 +852,7 @@ function QuickApp() {
         key:t.key, onClick:()=>{setActiveForm(null);setTab(t.key);},
         style:{
           background:"none",border:"none",cursor:"pointer",
-          color: tab===t.key&&!activeForm ? YEL : LGRAY,
+          color: tab===t.key&&!activeForm ? WHITE : "rgba(255,255,255,0.55)",
           fontWeight:700,fontSize:12,fontFamily:"inherit",
           display:"flex",flexDirection:"column",alignItems:"center",gap:3,
           padding:"4px 20px",
