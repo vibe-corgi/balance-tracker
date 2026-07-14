@@ -948,13 +948,17 @@ function QuickApp() {
     rest:       h(RestForm,{...formProps,editEv}),
   };
 
-  const [,mo,dd]=today.split("-");
+  const WEEK_DAYS=["일","월","화","수","목","금","토"];
+  const fmtDateLabel=(dateStr)=>{
+    const [,m,d]=dateStr.split("-");
+    const dow=WEEK_DAYS[new Date(dateStr+"T00:00:00Z").getUTCDay()];
+    return `${+m}월 ${+d}일 (${dow})`;
+  };
   const showDateNav = tab==="기록" && !activeForm;
   const dispDate = showDateNav ? recordDate : today;
-  const [,dMo,dDd] = dispDate.split("-");
   const prevDay=()=>{ const d=new Date(recordDate+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()-1); changeRecordDate(d.toISOString().slice(0,10)); };
   const nextDay=()=>{ if(recordDate>=today)return; const d=new Date(recordDate+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+1); changeRecordDate(d.toISOString().slice(0,10)); };
-  const dateLabel = dispDate===today?"오늘":dispDate===getDateStr(1)?"어제":`${+dMo}월 ${+dDd}일`;
+  const dateLabel = fmtDateLabel(dispDate)+(dispDate===today?" TODAY":"");
   const TABS=[
     {key:"기록",icon:"📝"},
     {key:"오늘",icon:"📋"},
@@ -979,7 +983,7 @@ function QuickApp() {
             cursor:"pointer",padding:"0 4px 0 0",lineHeight:1,
           }},"◀"),
           h("span",{style:{fontSize:16,fontWeight:800,color:INK}},
-            showDateNav ? dateLabel : `${+mo}월 ${+dd}일`
+            showDateNav ? dateLabel : fmtDateLabel(today)+" TODAY"
           ),
           showDateNav && recordDate!==today && h("button",{onClick:nextDay,style:{
             background:"none",border:"none",color:PU,fontSize:18,fontWeight:900,
