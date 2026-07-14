@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
   <title>BALANCE 빠른 기록</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="발란스">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
-  <meta name="theme-color" content="#1A1033">
+  <meta name="theme-color" content="#FFF1E8">
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/galmuri.css" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -18,16 +18,35 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; background: #1A1033; }
-    body { font-family: 'Galmuri11', -apple-system, sans-serif; color: #fff; }
+    html, body { height: 100%; background: #FFF1E8; }
+    body { font-family: 'Galmuri11', -apple-system, sans-serif; color: #1D2B53; }
     input, textarea, select, button { font-family: inherit; }
-    input[type="time"] { color-scheme: dark; appearance: none; -webkit-appearance: none; }
+    input[type="time"] { color-scheme: light; }
     input:focus, textarea:focus { outline: none; }
     textarea { resize: none; overflow: hidden; }
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #1A1033; }
-    ::-webkit-scrollbar-thumb { background: #3D2E6B; border-radius: 4px; }
-    .wc::-webkit-scrollbar { display: none; }
+    ::-webkit-scrollbar-track { background: #FFF1E8; }
+    ::-webkit-scrollbar-thumb { background: #C2C3C7; border-radius: 2px; }
+    @keyframes xpGrow { from { width: 0 } }
+    @keyframes saveIn {
+      0%   { opacity:0; transform:scale(0.7) }
+      60%  { transform:scale(1.05) }
+      100% { opacity:1; transform:scale(1) }
+    }
+    @keyframes checkPop {
+      0%   { transform:scale(0) }
+      70%  { transform:scale(1.3) }
+      100% { transform:scale(1) }
+    }
+    @keyframes barFill {
+      0%   { width:0 }
+      100% { width:100% }
+    }
+    @keyframes fadeOut {
+      0%   { opacity:1 }
+      80%  { opacity:1 }
+      100% { opacity:0 }
+    }
   </style>
 </head>
 <body>
@@ -42,26 +61,47 @@ firebase.initializeApp({
   appId: "1:315815370869:web:3af01d53456b772a8f183c"
 });
 const auth = firebase.auth();
-const db = firebase.firestore();
-
-const { useState, useEffect, useRef } = React;
+const db   = firebase.firestore();
+const { useState, useEffect, useRef, useCallback } = React;
 const h = React.createElement;
 
-// ── 상수 ───────────────────────────────────────────────
-const INK = "#1A1033", PU = "#9B6FC7", PU2 = "#7B5EA7";
+// ── Pico-8 팔레트 ─────────────────────────────────────────
+const BG    = "#FFF1E8";
+const DARK  = "#1D2B53";
+const PINK  = "#FF77A8";
+const YEL   = "#FFCC54";
+const GRN   = "#008751";
+const BRN   = "#AB5236";
+const LGRAY = "#C2C3C7";
+const TXT2  = "#5F574F";
+const WHITE = "#FFFFFF";
+
+// ── 카테고리 & 상수 ───────────────────────────────────────
 const CATS = [
-  { id:"morning",    icon:"🌤️", label:"아침 컨디션", color:"#F5C842" },
+  { id:"morning",    icon:"🌤️", label:"아침 컨디션", color:"#FFCC54" },
   { id:"evening",    icon:"🌙", label:"저녁 컨디션", color:"#7B8CDE" },
-  { id:"exercise",   icon:"💪", label:"운동",        color:"#FF6B6B" },
-  { id:"meal",       icon:"🍽️", label:"식사",        color:"#66BB6A" },
-  { id:"meditation", icon:"🧘", label:"명상",        color:"#AB47BC" },
-  { id:"hydration",  icon:"💧", label:"수분",        color:"#29B6F6" },
-  { id:"bathroom",   icon:"🚽", label:"화장실",      color:"#8D6E63" },
-  { id:"emotion",    icon:"💭", label:"감정",        color:"#EF5350" },
-  { id:"activity",   icon:"📖", label:"활동",        color:"#7C6BC7" },
+  { id:"exercise",   icon:"💪", label:"운동",        color:"#FF4136" },
+  { id:"meal",       icon:"🍽️", label:"식사",        color:"#008751" },
+  { id:"meditation", icon:"🧘", label:"명상",        color:"#AB5236" },
+  { id:"hydration",  icon:"💧", label:"수분",        color:"#29ADFF" },
+  { id:"bathroom",   icon:"🚽", label:"화장실",      color:"#5F574F" },
+  { id:"emotion",    icon:"💭", label:"감정",        color:"#FF77A8" },
+  { id:"activity",   icon:"📖", label:"활동",        color:"#7E2553" },
   { id:"rest",       icon:"💤", label:"휴식",        color:"#6D7BD9" },
 ];
-// 웹 앱(index.html) EMOTIONS 키 순서와 동일
+const XP_MAP = {
+  morning:10, evening:10, exercise:15, meal:5,
+  meditation:12, hydration:5, bathroom:2, emotion:8,
+  activity:10, rest:8,
+};
+const LV_TABLE = [
+  { min:0,  lv:1, title:"START",   bar:"#FF4136" },
+  { min:20, lv:2, title:"OK",      bar:"#FFCC54" },
+  { min:40, lv:3, title:"GOOD",    bar:"#FFCC54" },
+  { min:60, lv:4, title:"GREAT",   bar:"#008751" },
+  { min:80, lv:5, title:"PERFECT", bar:"#008751" },
+];
+// index.html과 동기화된 감정 목록
 const EMOTIONS = [
   {name:"까칠",emoji:"😒"},{name:"불안",emoji:"😟"},{name:"슬픔",emoji:"😢"},
   {name:"무기력",emoji:"😴"},{name:"지침",emoji:"😩"},{name:"답답",emoji:"😤"},
@@ -69,24 +109,18 @@ const EMOTIONS = [
   {name:"평온",emoji:"🌊"},{name:"감사",emoji:"🙏"},{name:"뿌듯",emoji:"😁"},
   {name:"상쾌",emoji:"✨"},{name:"활력",emoji:"⚡"},{name:"기쁨",emoji:"😄"},
 ];
-const FEEL_OPTS = ["아주 잘 맞음","잘 맞음","보통","안 맞음","아주 안 맞음"];
-const HYD_TYPES = [
-  { key:"water",      label:"물",      ml:true  },
-  { key:"tea",        label:"차",      ml:true  },
-  { key:"coffee",     label:"커피",    ml:false },
+const FEEL_OPTS  = ["아주 잘 맞음","잘 맞음","보통","안 맞음","아주 안 맞음"];
+const HYD_TYPES  = [
+  { key:"water",      label:"물",       ml:true  },
+  { key:"tea",        label:"차",       ml:true  },
+  { key:"coffee",     label:"커피",     ml:false },
   { key:"commercial", label:"시판음료", ml:false },
   { key:"health",     label:"건강음료", cups:true},
 ];
 const BATH_FEELS = ["매우 좋음","좋음","보통","불편","매우 불편"];
-const LV_EMOJI = ["","😞","😕","😐","🙂","😊"];
+const LV_EMOJI   = ["","😞","😕","😐","🙂","😊"];
 
-// ── 휠 피커 상수 ────────────────────────────────────────
-const ITEM_H = 44;
-const AMPM  = ["오전","오후"];
-const HOURS = Array.from({length:12},(_,i)=>String(i+1).padStart(2,"0"));
-const MINS  = Array.from({length:60},(_,i)=>String(i).padStart(2,"0"));
-
-// ── 헬퍼 ───────────────────────────────────────────────
+// ── 헬퍼 ──────────────────────────────────────────────────
 function getToday() {
   const d = new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));
   return d.toISOString().slice(0,10);
@@ -101,182 +135,275 @@ function nowHM() {
   return d.toTimeString().slice(0,5);
 }
 function uid6() { return Date.now().toString(36).slice(-6)+Math.random().toString(36).slice(-3); }
-function fmtDate(s) {
-  const [,m,d] = s.split("-"); return `${+m}월 ${+d}일`;
+function fmtDate(s) { const [,m,d]=s.split("-"); return `${+m}월 ${+d}일`; }
+function toMin(hm) { if(!hm)return 0; const[H,M]=hm.split(":").map(Number); return H*60+M; }
+function fmtDur(min) { const H=Math.floor(min/60),M=min%60; return H?`${H}시간${M?` ${M}분`:""}`:M?`${M}분`:""; }
+function getDayNum() {
+  const d = new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));
+  const start = new Date(d.getFullYear(),0,0);
+  return Math.floor((d-start)/(1000*60*60*24));
 }
-function toMin(hm) { if(!hm)return 0; const[h,m]=hm.split(":").map(Number); return h*60+m; }
-function fmtDur(min) { const h=Math.floor(min/60),m=min%60; return h?`${h}시간${m?` ${m}분`:""}`:m?`${m}분`:""; }
-function parseTime(v="00:00") {
-  const [H,M] = (v||"00:00").split(":").map(Number);
-  const ap = H < 12 ? "오전" : "오후";
-  const raw = H===0?12:H>12?H-12:H;
-  const h12 = String(raw).padStart(2,"0");
-  const min  = String(M||0).padStart(2,"0");
-  return {ap, h12, min};
+function calcXP(entry) {
+  if(!entry) return 0;
+  let xp = 0;
+  if(entry.morning?.level)  xp += XP_MAP.morning;
+  if(entry.evening?.level)  xp += XP_MAP.evening;
+  (entry.events||[]).forEach(ev=>{ xp += XP_MAP[ev.type]||0; });
+  return Math.min(xp,100);
 }
-function buildTime(ap, h12, min) {
-  let H = parseInt(h12);
-  if (ap==="오전") { if(H===12) H=0; }
-  else { if(H!==12) H+=12; }
-  return `${String(H).padStart(2,"0")}:${min}`;
+function getLv(xp) {
+  let r=LV_TABLE[0];
+  for(const d of LV_TABLE){ if(xp>=d.min) r=d; }
+  return r;
 }
 
-// ── 스타일 ─────────────────────────────────────────────
+// ── 공통 스타일 ───────────────────────────────────────────
+const PF  = { fontFamily:"'Press Start 2P'" };
 const inputSt = {
-  background:"#2A1F4A", border:"2px solid #3D2E6B", borderRadius:10,
-  color:"#fff", padding:"12px 14px", fontSize:16, width:"100%", display:"block",
+  background:"#EEE8DC", border:`2px solid ${LGRAY}`,
+  borderRadius:6, color:DARK, padding:"11px 13px",
+  fontSize:15, width:"100%", display:"block",
 };
-const labelSt = { fontSize:11, color:"#9B7FD4", fontWeight:700, marginBottom:6, display:"block", letterSpacing:1 };
-const secSt = { marginBottom:16 };
+const labelSt = {
+  fontSize:11, color:TXT2, fontWeight:700,
+  marginBottom:5, display:"block",
+};
+const secSt = { marginBottom:14 };
 
-// ── 공통 컴포넌트 ──────────────────────────────────────
+// ── XP 바 ─────────────────────────────────────────────────
+function XPBar({ entry }) {
+  const xp = calcXP(entry);
+  const { lv, title, bar } = getLv(xp);
+  return h("div", { style:{ padding:"6px 0 2px" } },
+    h("div",{ style:{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 } },
+      h("span",{ style:{ ...PF, fontSize:7, color:TXT2 } }, `LV.${lv} ${title}`),
+      h("span",{ style:{ ...PF, fontSize:7, color:DARK } }, `${xp}/100 XP`)
+    ),
+    h("div",{ style:{
+      background:LGRAY, height:8, borderRadius:1,
+      border:`2px solid ${DARK}`, overflow:"hidden",
+    }},
+      h("div",{ style:{
+        width:`${xp}%`, height:"100%", background:bar,
+        animation:"xpGrow 0.6s ease-out",
+      }})
+    )
+  );
+}
+
+// ── 게임보이 저장 애니메이션 ──────────────────────────────
+function SaveAnim({ xp, onDone }) {
+  useEffect(()=>{ const t=setTimeout(onDone,1800); return()=>clearTimeout(t); },[]);
+  return h("div",{ style:{
+    position:"fixed", inset:0, background:"rgba(29,43,83,0.85)",
+    display:"flex", alignItems:"center", justifyContent:"center",
+    zIndex:999, animation:"saveIn 0.3s ease-out",
+  }},
+    h("div",{ style:{
+      background:DARK, border:`4px solid ${LGRAY}`,
+      borderRadius:16, padding:"28px 32px", textAlign:"center",
+      boxShadow:`0 0 0 8px ${DARK}`,
+      animation:"saveIn 0.3s ease-out",
+    }},
+      // 게임보이 작은 아이콘
+      h("div",{ style:{
+        width:56, height:56, margin:"0 auto 16px",
+        background:"#C2C3C7", borderRadius:8,
+        border:`3px solid ${LGRAY}`, position:"relative",
+        display:"flex", alignItems:"center", justifyContent:"center",
+      }},
+        h("div",{ style:{
+          width:32, height:24, background:DARK, borderRadius:2,
+          border:`2px solid ${LGRAY}`,
+          display:"flex", alignItems:"center", justifyContent:"center",
+        }},
+          h("span",{ style:{ fontSize:14 } }, "✓")
+        ),
+        h("div",{ style:{
+          position:"absolute", bottom:6, left:"50%",
+          transform:"translateX(-50%)",
+          width:18, height:6, background:PINK, borderRadius:3,
+        }})
+      ),
+      h("div",{ style:{ ...PF, fontSize:9, color:YEL, letterSpacing:1, marginBottom:12 } },"SAVE COMPLETE!"),
+      xp>0 && h("div",{ style:{ ...PF, fontSize:8, color:PINK, marginBottom:14 } },`+${xp} XP`),
+      // 로딩 바
+      h("div",{ style:{
+        width:140, height:8, background:"#0D1B2A",
+        border:`2px solid ${LGRAY}`, borderRadius:1, overflow:"hidden",
+        margin:"0 auto",
+      }},
+        h("div",{ style:{
+          height:"100%", background:GRN,
+          animation:"barFill 1.4s ease-out forwards",
+        }})
+      )
+    )
+  );
+}
+
+// ── 공통 컴포넌트 ─────────────────────────────────────────
 function MemoArea({ value, onChange, placeholder="메모 (선택)" }) {
-  const ref = useRef(null);
-  useEffect(() => {
+  const ref=useRef(null);
+  useEffect(()=>{
     if(ref.current){ ref.current.style.height="auto"; ref.current.style.height=ref.current.scrollHeight+"px"; }
-  }, [value]);
-  return h("textarea", {
-    ref, value, onChange: e=>onChange(e.target.value), placeholder, rows:2,
-    onInput: e=>{ e.target.style.height="auto"; e.target.style.height=e.target.scrollHeight+"px"; },
-    style: { ...inputSt, lineHeight:1.6, paddingTop:12 }
+  },[value]);
+  return h("textarea",{
+    ref, value, onChange:e=>onChange(e.target.value), placeholder, rows:2,
+    onInput:e=>{ e.target.style.height="auto"; e.target.style.height=e.target.scrollHeight+"px"; },
+    style:{ ...inputSt, lineHeight:1.6, paddingTop:11 }
   });
 }
 
-// ── 시간 입력 (오전/오후 토글 + 네이티브 time input) ────
 function TimeInput({ value, onChange, label }) {
-  const hh = parseInt((value||"00:00").split(":")[0]);
-  const isAM = hh < 12;
-
-  const toggleAP = () => {
-    const [h2, m2] = (value||"00:00").split(":").map(Number);
-    const newH = isAM ? (h2+12)%24 : Math.max(0, h2-12);
+  const hh=parseInt((value||"00:00").split(":")[0]);
+  const isAM=hh<12;
+  const toggleAP=()=>{
+    const [h2,m2]=(value||"00:00").split(":").map(Number);
+    const newH=isAM?(h2+12)%24:Math.max(0,h2-12);
     onChange(`${String(newH).padStart(2,"0")}:${String(m2).padStart(2,"0")}`);
   };
-
-  return h("div", null,
-    label && h("label", { style: labelSt }, label),
-    h("div", { style: { display:"flex", gap:6, alignItems:"stretch" }},
-      h("button", { onClick: toggleAP, style: {
-        background: PU, border: "none", color: "#fff", cursor: "pointer",
-        borderRadius: 10, padding: "0 10px", fontSize: 14, fontWeight: 800,
-        flexShrink: 0, minWidth: 52, textAlign: "center"
-      }}, isAM ? "오전" : "오후"),
-      h("input", { type:"time", value, onChange: e => onChange(e.target.value),
-        style: { ...inputSt, flex: 1, minWidth: 0 }})
+  return h("div",null,
+    label && h("label",{ style:labelSt },label),
+    h("div",{ style:{ display:"flex", gap:6, alignItems:"stretch" } },
+      h("button",{ onClick:toggleAP, style:{
+        background:DARK, border:"none", color:WHITE,
+        cursor:"pointer", borderRadius:6, padding:"0 12px",
+        fontSize:13, fontWeight:800, flexShrink:0, minWidth:52, textAlign:"center",
+      }},isAM?"오전":"오후"),
+      h("input",{ type:"time", value, onChange:e=>onChange(e.target.value),
+        style:{ ...inputSt, flex:1, minWidth:0 } })
     )
   );
 }
 
 function TimeRange({ start, end, onStart, onEnd }) {
-  return h("div", { style: { display:"flex", gap:10, alignItems:"flex-end" }},
-    h("div", { style: { flex:1, minWidth:0 }}, h(TimeInput, { value:start, onChange:onStart, label:"시작" })),
-    h("div", { style: { color:PU, fontWeight:900, paddingBottom:14, flexShrink:0 }}, "~"),
-    h("div", { style: { flex:1, minWidth:0 }}, h(TimeInput, { value:end, onChange:onEnd, label:"종료" }))
+  return h("div",{ style:{ display:"flex", gap:10, alignItems:"flex-end" } },
+    h("div",{ style:{ flex:1, minWidth:0 } }, h(TimeInput,{ value:start, onChange:onStart, label:"시작" })),
+    h("div",{ style:{ color:LGRAY, fontWeight:900, paddingBottom:13, flexShrink:0 } },"~"),
+    h("div",{ style:{ flex:1, minWidth:0 } }, h(TimeInput,{ value:end, onChange:onEnd, label:"종료" }))
   );
 }
 
 function LevelPicker({ value, onChange }) {
-  return h("div", null,
-    h("div", { style:{display:"flex",gap:8} },
-      [1,2,3,4,5].map(n =>
-        h("button", {
+  return h("div",null,
+    h("div",{ style:{ display:"flex", gap:5 } },
+      [1,2,3,4,5].map(n=>{
+        const active=value===n;
+        return h("button",{
           key:n, onClick:()=>onChange(n),
           style:{
-            flex:1, padding:"10px 0", cursor:"pointer",
-            border:"2px solid "+(value===n?PU:"#3D2E6B"), borderRadius:10,
-            background:value===n?PU:"#2A1F4A", color:"#fff",
-            display:"flex", flexDirection:"column", alignItems:"center", gap:4
+            flex:1, padding:"9px 0", cursor:"pointer",
+            border:`2px solid ${active?PINK:LGRAY}`,
+            borderRadius:8,
+            background:active?PINK+"22":WHITE,
+            color:DARK,
+            display:"flex", flexDirection:"column", alignItems:"center", gap:3,
           }
         },
-          h("span",{style:{fontSize:20}}, LV_EMOJI[n]),
-          h("span",{style:{fontSize:12,fontWeight:700}}, n)
-        )
-      )
+          h("span",{ style:{ fontSize:18 } },LV_EMOJI[n]),
+          h("span",{ style:{ ...PF, fontSize:7 } },n)
+        );
+      })
     ),
-    h("div",{style:{display:"flex",justifyContent:"space-between",marginTop:5,fontSize:11,color:"#9B7FD4"}},
-      h("span",null,"😞 나쁨"),
-      h("span",null,"좋음 😊")
+    h("div",{ style:{ display:"flex", justifyContent:"space-between", marginTop:4, fontSize:11, color:TXT2 } },
+      h("span",null,"나쁨"),h("span",null,"좋음")
     )
   );
 }
 
-function TagRow({ options, value, onChange }) {
-  return h("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
-    options.map(opt =>
-      h("button",{
+function ScaleRow({ options, value, onChange, color=PINK }) {
+  return h("div",{ style:{ display:"grid", gridTemplateColumns:`repeat(${options.length},1fr)`, gap:4 } },
+    options.map(opt=>{
+      const active=value===opt;
+      return h("button",{
         key:opt, onClick:()=>onChange(value===opt?null:opt),
         style:{
-          padding:"9px 13px", borderRadius:8, cursor:"pointer", fontSize:12, fontWeight:700,
-          border:"2px solid "+(value===opt?PU:"#3D2E6B"),
-          background:value===opt?PU:"#2A1F4A", color:"#fff"
-        }
-      }, opt)
-    )
-  );
-}
-
-// 가로 한 줄 균등 분할 (식사 느낌, 화장실 컨디션 등)
-function ScaleRow({ options, value, onChange }) {
-  return h("div",{style:{display:"grid",gridTemplateColumns:`repeat(${options.length},1fr)`,gap:4}},
-    options.map(opt =>
-      h("button",{
-        key:opt, onClick:()=>onChange(value===opt?null:opt),
-        style:{
-          padding:"9px 2px", borderRadius:8, cursor:"pointer",
+          padding:"8px 2px", borderRadius:6, cursor:"pointer",
           fontSize:10, fontWeight:700, lineHeight:1.4, textAlign:"center",
-          border:"2px solid "+(value===opt?PU:"#3D2E6B"),
-          background:value===opt?PU:"#2A1F4A", color:"#fff",
-          wordBreak:"keep-all"
+          border:`2px solid ${active?color:LGRAY}`,
+          background:active?color:WHITE, color:active?WHITE:DARK,
+          wordBreak:"keep-all",
         }
-      }, opt)
-    )
+      },opt);
+    })
   );
 }
 
-function FormWrap({ title, onCancel, onSave, children, saveLabel="저장" }) {
-  return h("div", null,
-    h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}},
-      h("button",{onClick:onCancel,style:{background:"none",border:"none",color:PU,fontSize:15,fontWeight:700,cursor:"pointer",padding:"4px 0"}}, "← 뒤로"),
-      h("span",{style:{fontSize:15,fontWeight:800}}, title)
+function ChipRow({ options, value, onChange, color=PINK }) {
+  return h("div",{ style:{ display:"flex", gap:6, flexWrap:"wrap" } },
+    options.map(opt=>{
+      const active=value===opt;
+      return h("button",{
+        key:opt, onClick:()=>onChange(value===opt?null:opt),
+        style:{
+          padding:"8px 13px", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:700,
+          border:`2px solid ${active?color:LGRAY}`,
+          background:active?color:WHITE, color:active?WHITE:DARK,
+        }
+      },opt);
+    })
+  );
+}
+
+// ── FormWrap ──────────────────────────────────────────────
+function FormWrap({ title, onCancel, onSave, children, xp=0 }) {
+  return h("div",null,
+    h("div",{ style:{ display:"flex", alignItems:"center", marginBottom:18 } },
+      h("button",{ onClick:onCancel, style:{
+        background:"none", border:`2px solid ${LGRAY}`,
+        color:DARK, fontSize:12, fontWeight:700,
+        cursor:"pointer", padding:"6px 10px", borderRadius:6, marginRight:10, flexShrink:0,
+      } },"← 뒤로"),
+      h("span",{ style:{ fontSize:14, fontWeight:800, color:DARK } },title)
     ),
     children,
-    h("button",{onClick:onSave,style:{
-      background:PU, color:"#fff", border:"none", borderRadius:12,
-      padding:"16px 0", fontSize:16, fontWeight:800, cursor:"pointer", width:"100%", marginTop:8
-    }}, saveLabel)
+    // 저장 버튼
+    h("button",{ onClick:onSave, style:{
+      background:PINK, color:WHITE, border:"none",
+      borderRadius:10, padding:"0", fontSize:15, fontWeight:800,
+      cursor:"pointer", width:"100%", marginTop:10,
+      display:"flex", alignItems:"stretch", justifyContent:"space-between", overflow:"hidden",
+    }},
+      h("span",{ style:{ padding:"16px 0 16px 18px", flex:1 } },"▶  저장"),
+      xp>0 && h("span",{ style:{
+        ...PF, fontSize:8, background:YEL, color:DARK,
+        padding:"0 14px", display:"flex", alignItems:"center",
+      }},`+${xp}XP`)
+    )
   );
 }
 
-// ── 폼들 ───────────────────────────────────────────────
+// ── 폼들 ──────────────────────────────────────────────────
 function MorningForm({entry,onSave,onCancel}) {
-  const ex = entry?.morning;
+  const ex=entry?.morning;
   const [lv,setLv]=useState(ex?.level??null);
   const [wake,setWake]=useState(ex?.wakeTime??nowHM());
   const [note,setNote]=useState(ex?.note??"");
   const [period,setPeriod]=useState(ex?.period??false);
-  return h(FormWrap,{title:"🌤️ 아침 컨디션",onCancel,onSave:()=>{
+  return h(FormWrap,{title:"🌤️ 아침 컨디션",onCancel,xp:XP_MAP.morning,onSave:()=>{
     if(!lv)return alert("컨디션을 선택해줘요");
-    onSave({...entry, morning:{level:lv,wakeTime:wake,note,period}});
+    onSave({...entry,morning:{level:lv,wakeTime:wake,note,period}},XP_MAP.morning);
   }},
     h("div",{style:secSt}, h("label",{style:labelSt},"컨디션"), h(LevelPicker,{value:lv,onChange:setLv})),
     h("div",{style:secSt}, h(TimeInput,{label:"기상 시간",value:wake,onChange:setWake})),
     h("div",{style:{...secSt,display:"flex",alignItems:"center",gap:10}},
       h("input",{type:"checkbox",id:"period",checked:period,onChange:e=>setPeriod(e.target.checked),
-        style:{width:20,height:20,accentColor:PU,cursor:"pointer"}}),
-      h("label",{htmlFor:"period",style:{...labelSt,margin:0,cursor:"pointer",color:"#ff9eb5"}}, "🩸 생리 중")
+        style:{width:20,height:20,accentColor:PINK,cursor:"pointer"}}),
+      h("label",{htmlFor:"period",style:{...labelSt,margin:0,cursor:"pointer",color:PINK}},"🩸 생리 중")
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:note,onChange:setNote}))
   );
 }
 
 function EveningForm({entry,onSave,onCancel}) {
-  const ex = entry?.evening;
+  const ex=entry?.evening;
   const [lv,setLv]=useState(ex?.level??null);
   const [bed,setBed]=useState(ex?.bedTime??nowHM());
   const [note,setNote]=useState(ex?.note??"");
-  return h(FormWrap,{title:"🌙 저녁 컨디션",onCancel,onSave:()=>{
+  return h(FormWrap,{title:"🌙 저녁 컨디션",onCancel,xp:XP_MAP.evening,onSave:()=>{
     if(!lv)return alert("컨디션을 선택해줘요");
-    onSave({...entry, evening:{level:lv,bedTime:bed,note}});
+    onSave({...entry,evening:{level:lv,bedTime:bed,note}},XP_MAP.evening);
   }},
     h("div",{style:secSt}, h("label",{style:labelSt},"컨디션"), h(LevelPicker,{value:lv,onChange:setLv})),
     h("div",{style:secSt}, h(TimeInput,{label:"취침 시간",value:bed,onChange:setBed})),
@@ -290,8 +417,8 @@ function ExerciseForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"💪 운동",onCancel,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"exercise",time:start,endTime:end,duration:dur(),memo}]});
+  return h(FormWrap,{title:"💪 운동",onCancel,xp:XP_MAP.exercise,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"exercise",time:start,endTime:end,duration:dur(),memo}]},XP_MAP.exercise);
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"헬스장, 러닝, 홈트..."}))
@@ -304,8 +431,8 @@ function MealForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [label,setLabel]=useState("");
   const [feel,setFeel]=useState(null);
-  return h(FormWrap,{title:"🍽️ 식사",onCancel,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meal",time:start,endTime:end,label,feel}]});
+  return h(FormWrap,{title:"🍽️ 식사",onCancel,xp:XP_MAP.meal,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meal",time:start,endTime:end,label,feel}]},XP_MAP.meal);
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt},
@@ -314,7 +441,7 @@ function MealForm({entry,onSave,onCancel}) {
     ),
     h("div",{style:secSt},
       h("label",{style:labelSt},"몸에 어땠나요? (선택)"),
-      h(ScaleRow,{options:FEEL_OPTS,value:feel,onChange:setFeel})
+      h(ScaleRow,{options:FEEL_OPTS,value:feel,onChange:setFeel,color:"#008751"})
     )
   );
 }
@@ -326,14 +453,14 @@ function MeditationForm({entry,onSave,onCancel}) {
   const [lotus,setLotus]=useState(false);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"🧘 명상",onCancel,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meditation",time:start,endTime:end,duration:dur(),lotus,memo}]});
+  return h(FormWrap,{title:"🧘 명상",onCancel,xp:XP_MAP.meditation,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"meditation",time:start,endTime:end,duration:dur(),lotus,memo}]},XP_MAP.meditation);
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:{...secSt,display:"flex",alignItems:"center",gap:10}},
       h("input",{type:"checkbox",id:"lotus",checked:lotus,onChange:e=>setLotus(e.target.checked),
-        style:{width:20,height:20,accentColor:PU,cursor:"pointer"}}),
-      h("label",{htmlFor:"lotus",style:{...labelSt,margin:0,cursor:"pointer",fontSize:14}}, "결가부좌")
+        style:{width:20,height:20,accentColor:BRN,cursor:"pointer"}}),
+      h("label",{htmlFor:"lotus",style:{...labelSt,margin:0,cursor:"pointer",fontSize:14}},"결가부좌")
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모 (선택)"), h(MemoArea,{value:memo,onChange:setMemo}))
   );
@@ -345,18 +472,21 @@ function HydrationForm({entry,onSave,onCancel}) {
   const [amount,setAmount]=useState("250");
   const [cups,setCups]=useState("1");
   const [label,setLabel]=useState("");
-  const ht=HYD_TYPES.find(h=>h.key===hydType);
-  return h(FormWrap,{title:"💧 수분",onCancel,onSave:()=>{
+  const ht=HYD_TYPES.find(x=>x.key===hydType);
+  return h(FormWrap,{title:"💧 수분",onCancel,xp:XP_MAP.hydration,onSave:()=>{
     const ev={id:uid6(),type:"hydration",time,hydType,label};
-    if(ht.ml) ev.amountMl=Number(amount)||0;
+    if(ht.ml)   ev.amountMl=Number(amount)||0;
     if(ht.cups) ev.cups=Number(cups)||1;
-    onSave({...entry,events:[...(entry.events||[]),ev]});
+    onSave({...entry,events:[...(entry.events||[]),ev]},XP_MAP.hydration);
   }},
     h("div",{style:{...secSt,display:"flex",gap:6,flexWrap:"wrap"}},
       HYD_TYPES.map(t=>h("button",{
         key:t.key, onClick:()=>setHydType(t.key),
-        style:{padding:"9px 14px",borderRadius:10,border:"2px solid "+(hydType===t.key?PU:"#3D2E6B"),
-          background:hydType===t.key?PU:"#2A1F4A",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}
+        style:{padding:"8px 12px",borderRadius:6,
+          border:`2px solid ${hydType===t.key?"#29ADFF":LGRAY}`,
+          background:hydType===t.key?"#29ADFF":WHITE,
+          color:hydType===t.key?WHITE:DARK,
+          fontSize:12,fontWeight:700,cursor:"pointer"}
       },t.label))
     ),
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
@@ -379,13 +509,13 @@ function BathroomForm({entry,onSave,onCancel}) {
   const [time,setTime]=useState(nowHM());
   const [feel,setFeel]=useState(null);
   const [memo,setMemo]=useState("");
-  return h(FormWrap,{title:"🚽 화장실",onCancel,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"bathroom",time,feel,memo}]});
+  return h(FormWrap,{title:"🚽 화장실",onCancel,xp:XP_MAP.bathroom,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"bathroom",time,feel,memo}]},XP_MAP.bathroom);
   }},
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
     h("div",{style:secSt},
       h("label",{style:labelSt},"컨디션 (선택)"),
-      h(ScaleRow,{options:BATH_FEELS,value:feel,onChange:setFeel})
+      h(ScaleRow,{options:BATH_FEELS,value:feel,onChange:setFeel,color:TXT2})
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모 (선택)"), h(MemoArea,{value:memo,onChange:setMemo}))
   );
@@ -395,22 +525,25 @@ function EmotionForm({entry,onSave,onCancel}) {
   const [time,setTime]=useState(nowHM());
   const [emotion,setEmotion]=useState(null);
   const [memo,setMemo]=useState("");
-  return h(FormWrap,{title:"💭 감정",onCancel,onSave:()=>{
+  return h(FormWrap,{title:"💭 감정",onCancel,xp:XP_MAP.emotion,onSave:()=>{
     if(!emotion)return alert("감정을 선택해줘요");
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"emotion",time,name:emotion,memo}]});
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"emotion",time,name:emotion,memo}]},XP_MAP.emotion);
   }},
     h("div",{style:secSt}, h(TimeInput,{label:"시간",value:time,onChange:setTime})),
     h("div",{style:secSt},
       h("label",{style:labelSt},"감정"),
-      h("div",{style:{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}},
+      h("div",{style:{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:5}},
         EMOTIONS.map(({name,emoji})=>h("button",{
           key:name, onClick:()=>setEmotion(name),
-          style:{padding:"10px 0",borderRadius:8,border:"2px solid "+(emotion===name?PU:"#3D2E6B"),
-            background:emotion===name?PU:"#2A1F4A",color:"#fff",cursor:"pointer",
+          style:{padding:"9px 0",borderRadius:6,
+            border:`2px solid ${emotion===name?PINK:LGRAY}`,
+            background:emotion===name?PINK:WHITE,
+            color:emotion===name?WHITE:DARK,
+            cursor:"pointer",
             display:"flex",flexDirection:"column",alignItems:"center",gap:3}
         },
-          h("span",{style:{fontSize:20}},emoji),
-          h("span",{style:{fontSize:10,fontWeight:700}},name)
+          h("span",{style:{fontSize:18}},emoji),
+          h("span",{style:{fontSize:9,fontWeight:700}},name)
         ))
       )
     ),
@@ -424,8 +557,8 @@ function ActivityForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"📖 활동",onCancel,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"activity",time:start,endTime:end,duration:dur(),memo}]});
+  return h(FormWrap,{title:"📖 활동",onCancel,xp:XP_MAP.activity,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"activity",time:start,endTime:end,duration:dur(),memo}]},XP_MAP.activity);
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"독서, 공부, 취미, 산책..."}))
@@ -438,156 +571,215 @@ function RestForm({entry,onSave,onCancel}) {
   const [end,setEnd]=useState(now);
   const [memo,setMemo]=useState("");
   const dur=()=>Math.max(0,toMin(end)-toMin(start));
-  return h(FormWrap,{title:"💤 휴식",onCancel,onSave:()=>{
-    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"rest",time:start,endTime:end,duration:dur(),memo}]});
+  return h(FormWrap,{title:"💤 휴식",onCancel,xp:XP_MAP.rest,onSave:()=>{
+    onSave({...entry,events:[...(entry.events||[]),{id:uid6(),type:"rest",time:start,endTime:end,duration:dur(),memo}]},XP_MAP.rest);
   }},
     h("div",{style:secSt}, h(TimeRange,{start,end,onStart:setStart,onEnd:setEnd})),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모"), h(MemoArea,{value:memo,onChange:setMemo,placeholder:"낮잠, 멍때림, 음악 감상..."}))
   );
 }
 
-// ── 오늘의 흐름 ────────────────────────────────────────
+// ── 오늘의 흐름 ───────────────────────────────────────────
 function TodayFlow({ entry }) {
-  if (!entry) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}}, "오늘 기록이 없어요");
-  const catMap = Object.fromEntries(CATS.map(c=>[c.id,c]));
-  const items = [];
-  if (entry.morning?.wakeTime) items.push({time:entry.morning.wakeTime,type:"wake",data:entry.morning});
+  if(!entry) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"오늘 기록이 없어요");
+  const catMap=Object.fromEntries(CATS.map(c=>[c.id,c]));
+  const items=[];
+  if(entry.morning?.wakeTime) items.push({time:entry.morning.wakeTime,type:"wake",data:entry.morning});
   (entry.events||[]).forEach(ev=>items.push({time:ev.time,type:ev.type,data:ev}));
-  if (entry.evening?.bedTime) items.push({time:entry.evening.bedTime,type:"bed",data:entry.evening});
+  if(entry.evening?.bedTime) items.push({time:entry.evening.bedTime,type:"bed",data:entry.evening});
   items.sort((a,b)=>toMin(a.time)-toMin(b.time));
+  if(!items.length) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"기록이 없어요");
 
-  if(!items.length) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}}, "기록이 없어요");
-
-  const renderLine = (item,i) => {
-    let icon="", text="", sub="";
-    if(item.type==="wake") {
-      icon="🌤️"; text=`기상 · 컨디션 ${LV_EMOJI[item.data.level]}${item.data.level}`;
+  return h("div",null,items.map((item,i)=>{
+    let icon="",text="",sub="",color=LGRAY;
+    if(item.type==="wake"){
+      icon="🌤️";color=CATS[0].color;
+      text=`기상 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
       if(item.data.note) sub=item.data.note;
-    } else if(item.type==="bed") {
-      icon="🌙"; text=`취침 · 컨디션 ${LV_EMOJI[item.data.level]}${item.data.level}`;
+    } else if(item.type==="bed"){
+      icon="🌙";color=CATS[1].color;
+      text=`취침 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
       if(item.data.note) sub=item.data.note;
     } else {
-      const cat = catMap[item.type];
-      icon = cat?.icon||"•";
-      if(item.type==="exercise") text=`운동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else if(item.type==="meal") text=`식사${item.data.label?` · ${item.data.label}`:""}${item.data.feel?` · ${item.data.feel}`:""}`;
+      const cat=catMap[item.type]; icon=cat?.icon||"·"; color=cat?.color||LGRAY;
+      if(item.type==="exercise")   text=`운동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
+      else if(item.type==="meal")  text=`식사${item.data.label?` · ${item.data.label}`:""}${item.data.feel?` · ${item.data.feel}`:""}`;
       else if(item.type==="meditation") text=`명상${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.lotus?" · 결가부좌":""}`;
-      else if(item.type==="hydration") text=`수분${item.data.amountMl?` · ${item.data.amountMl}ml`:""}${item.data.cups?` · ${item.data.cups}잔`:""}${item.data.label?` · ${item.data.label}`:""}`;
-      else if(item.type==="bathroom") text=`화장실${item.data.feel?` · ${item.data.feel}`:""}`;
-      else if(item.type==="emotion") text=`감정 · ${item.data.name||""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else if(item.type==="activity") text=`활동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
-      else if(item.type==="rest") text=`휴식${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
+      else if(item.type==="hydration")  text=`수분${item.data.amountMl?` · ${item.data.amountMl}ml`:""}${item.data.cups?` · ${item.data.cups}잔`:""}${item.data.label?` · ${item.data.label}`:""}`;
+      else if(item.type==="bathroom")   text=`화장실${item.data.feel?` · ${item.data.feel}`:""}`;
+      else if(item.type==="emotion")    text=`감정 · ${item.data.name||""}${item.data.memo?` · ${item.data.memo}`:""}`;
+      else if(item.type==="activity")   text=`활동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
+      else if(item.type==="rest")       text=`휴식${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
       else text=cat?.label||item.type;
     }
-    return h("div",{key:i,style:{display:"flex",gap:12,paddingBottom:16,alignItems:"flex-start"}},
-      h("div",{style:{textAlign:"right",minWidth:42,paddingTop:1}},
-        h("span",{style:{fontSize:12,color:"#9B7FD4",fontVariantNumeric:"tabular-nums",fontWeight:700}},item.time)
+    return h("div",{key:i,style:{display:"flex",gap:10,paddingBottom:14,alignItems:"flex-start"}},
+      h("div",{style:{minWidth:40,textAlign:"right",paddingTop:2}},
+        h("span",{style:{...PF,fontSize:7,color:TXT2}},item.time)
       ),
-      h("div",{style:{width:2,background:"#3D2E6B",flexShrink:0,marginTop:4,minHeight:24}}),
+      h("div",{style:{width:3,background:color,flexShrink:0,marginTop:4,minHeight:20,borderRadius:2}}),
       h("div",{style:{flex:1}},
-        h("div",{style:{fontSize:13,fontWeight:700,lineHeight:1.5}}, icon+" "+text),
-        sub && h("div",{style:{fontSize:12,color:"#9B7FD4",marginTop:3,lineHeight:1.5}}, sub)
+        h("div",{style:{fontSize:13,fontWeight:700,lineHeight:1.5,color:DARK}},icon+" "+text),
+        sub && h("div",{style:{fontSize:11,color:TXT2,marginTop:2,lineHeight:1.4}},sub)
       )
     );
-  };
-
-  return h("div", null, items.map(renderLine));
+  }));
 }
 
-// ── 보관함 ─────────────────────────────────────────────
+// ── 보관함 ────────────────────────────────────────────────
 function Archive({ user }) {
-  const [days, setDays] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState(null);
-  const [selEntry, setSelEntry] = useState(null);
+  const [days,setDays]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [selected,setSelected]=useState(null);
+  const [selEntry,setSelEntry]=useState(null);
+  const [view,setView]=useState("stats");
 
-  useEffect(() => {
-    const load = async () => {
-      const results = [];
-      for (let i=1; i<=14; i++) {
-        const dateStr = getDateStr(i);
-        const snap = await db.collection("users").doc(user.uid).collection("data").doc(`entry:${dateStr}`).get();
-        if (snap.exists) {
-          try { results.push({ date:dateStr, entry:JSON.parse(snap.data().value) }); }
-          catch {}
-        }
+  useEffect(()=>{
+    const load=async()=>{
+      const results=[];
+      for(let i=1;i<=14;i++){
+        const dateStr=getDateStr(i);
+        const snap=await db.collection("users").doc(user.uid).collection("data").doc(`entry:${dateStr}`).get();
+        if(snap.exists){try{results.push({date:dateStr,entry:JSON.parse(snap.data().value)});}catch{}}
       }
-      setDays(results);
-      setLoading(false);
+      setDays(results); setLoading(false);
     };
     load();
-  }, [user]);
+  },[user]);
 
-  if (loading) return h("div",{style:{textAlign:"center",color:PU,paddingTop:40,fontSize:13}}, "불러오는 중...");
-  if (!days.length) return h("div",{style:{textAlign:"center",color:"#9B7FD4",paddingTop:40,fontSize:13}}, "이전 기록이 없어요");
+  if(loading) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"불러오는 중...");
+  if(!days.length) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"이전 기록이 없어요");
 
-  if (selected) return h("div", null,
+  if(selected) return h("div",null,
     h("button",{onClick:()=>{setSelected(null);setSelEntry(null);},
-      style:{background:"none",border:"none",color:PU,fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:20}}, "← 목록"),
-    h("div",{style:{fontSize:16,fontWeight:800,marginBottom:16}}, fmtDate(selected)),
+      style:{background:"none",border:`2px solid ${LGRAY}`,color:DARK,
+        fontSize:12,fontWeight:700,cursor:"pointer",padding:"6px 10px",borderRadius:6,marginBottom:18}
+    },"← 목록"),
+    h("div",{style:{...PF,fontSize:10,color:DARK,marginBottom:14}},fmtDate(selected)),
     h(TodayFlow,{entry:selEntry})
   );
 
-  return h("div", null,
-    days.map(({date,entry:en}) => {
-      const mLv = en?.morning?.level;
-      const eLv = en?.evening?.level;
-      const evCount = (en?.events||[]).length;
-      return h("button",{
-        key:date, onClick:()=>{ setSelected(date); setSelEntry(en); },
-        style:{
-          width:"100%", background:"#2A1F4A", border:"2px solid #3D2E6B", borderRadius:12,
-          padding:"14px 16px", marginBottom:10, cursor:"pointer", textAlign:"left",
-          display:"flex", alignItems:"center", justifyContent:"space-between"
-        }
-      },
-        h("div", null,
-          h("div",{style:{fontSize:14,fontWeight:800,color:"#fff",marginBottom:4}}, fmtDate(date)),
-          h("div",{style:{fontSize:12,color:"#9B7FD4"}}, `이벤트 ${evCount}개`)
-        ),
-        h("div",{style:{display:"flex",gap:8,alignItems:"center"}},
-          mLv && h("span",{style:{fontSize:18}}, LV_EMOJI[mLv]),
-          h("span",{style:{color:"#3D2E6B"}},"→"),
-          eLv && h("span",{style:{fontSize:18}}, LV_EMOJI[eLv])
+  // 14일 스탯 집계
+  const counts={};
+  CATS.forEach(c=>{counts[c.id]=0;});
+  days.forEach(({entry:en})=>{
+    if(en?.morning?.level) counts.morning++;
+    if(en?.evening?.level) counts.evening++;
+    (en?.events||[]).forEach(ev=>{if(counts[ev.type]!==undefined)counts[ev.type]++;});
+  });
+  const total=days.length;
+
+  const tabBtn=(label,key)=>h("button",{
+    onClick:()=>setView(key),
+    style:{
+      flex:1,padding:"7px 0",fontSize:11,fontWeight:700,cursor:"pointer",
+      border:`2px solid ${view===key?DARK:LGRAY}`,
+      borderRadius:6,
+      background:view===key?DARK:WHITE,
+      color:view===key?YEL:DARK,
+    }
+  },label);
+
+  return h("div",null,
+    h("div",{style:{display:"flex",gap:8,marginBottom:14}},
+      tabBtn("PLAYER STATS","stats"),
+      tabBtn("기록 목록","history")
+    ),
+    view==="stats"
+      ? h("div",null,
+          h("div",{style:{...PF,fontSize:7,color:TXT2,marginBottom:12}},`최근 ${total}일 기록`),
+          CATS.map(cat=>h("div",{key:cat.id,style:{display:"flex",alignItems:"center",gap:8,marginBottom:9}},
+            h("span",{style:{fontSize:15,flexShrink:0,width:22}},cat.icon),
+            h("div",{style:{flex:1,height:10,background:LGRAY,borderRadius:1,overflow:"hidden",border:`1px solid ${LGRAY}`}},
+              h("div",{style:{width:`${Math.round((counts[cat.id]/total)*100)}%`,height:"100%",background:cat.color,minWidth:counts[cat.id]>0?4:0}})
+            ),
+            h("span",{style:{...PF,fontSize:7,color:DARK,width:16,textAlign:"right",flexShrink:0}},counts[cat.id])
+          ))
         )
-      );
-    })
+      : h("div",null,
+          days.map(({date,entry:en})=>{
+            const mLv=en?.morning?.level;
+            const eLv=en?.evening?.level;
+            const xp=calcXP(en);
+            const {bar}=getLv(xp);
+            return h("button",{
+              key:date, onClick:()=>{setSelected(date);setSelEntry(en);},
+              style:{
+                width:"100%",background:WHITE,border:`2px solid ${LGRAY}`,
+                borderRadius:10,padding:"11px 13px",marginBottom:8,
+                cursor:"pointer",textAlign:"left",
+                display:"flex",alignItems:"center",justifyContent:"space-between",
+              }
+            },
+              h("div",null,
+                h("div",{style:{fontSize:13,fontWeight:800,color:DARK,marginBottom:5}},fmtDate(date)),
+                h("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                  h("div",{style:{background:LGRAY,width:56,height:6,borderRadius:1,overflow:"hidden"}},
+                    h("div",{style:{width:`${xp}%`,height:"100%",background:bar}})
+                  ),
+                  h("span",{style:{...PF,fontSize:7,color:TXT2}},`${xp}XP`)
+                )
+              ),
+              h("div",{style:{display:"flex",gap:6,alignItems:"center"}},
+                mLv ? h("span",{style:{fontSize:18}},LV_EMOJI[mLv])
+                     : h("span",{style:{fontSize:11,color:LGRAY}},"미기록"),
+                h("span",{style:{color:LGRAY,fontWeight:700}},"→"),
+                eLv ? h("span",{style:{fontSize:18}},LV_EMOJI[eLv])
+                     : h("span",{style:{fontSize:11,color:LGRAY}},"미기록")
+              )
+            );
+          })
+        )
   );
 }
 
-// ── 카테고리 그리드 ────────────────────────────────────
+// ── 카테고리 그리드 ────────────────────────────────────────
 function CategoryGrid({ entry, onSelect }) {
-  const logged = new Set();
+  const logged=new Set();
   if(entry?.morning?.level) logged.add("morning");
   if(entry?.evening?.level) logged.add("evening");
   (entry?.events||[]).forEach(ev=>logged.add(ev.type));
 
   return h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}},
-    CATS.map(cat=>h("button",{
-      key:cat.id, onClick:()=>onSelect(cat.id),
-      style:{
-        background:"#2A1F4A", border:"2px solid "+(logged.has(cat.id)?cat.color:"#3D2E6B"),
-        borderRadius:16, padding:"18px 0", cursor:"pointer",
-        display:"flex", flexDirection:"column", alignItems:"center", gap:6,
-        position:"relative"
-      }
-    },
-      logged.has(cat.id) && h("div",{style:{position:"absolute",top:8,right:10,fontSize:11,color:cat.color,fontWeight:800}}, "✓"),
-      h("span",{style:{fontSize:26}}, cat.icon),
-      h("span",{style:{fontSize:12,fontWeight:700,color:"#fff",lineHeight:1.4,textAlign:"center",padding:"0 4px"}}, cat.label)
-    ))
+    CATS.map(cat=>{
+      const done=logged.has(cat.id);
+      return h("button",{
+        key:cat.id, onClick:()=>onSelect(cat.id),
+        style:{
+          background:done?cat.color+"18":WHITE,
+          border:`2px solid ${done?cat.color:LGRAY}`,
+          borderRadius:12, padding:"18px 0 14px",
+          cursor:"pointer",
+          display:"flex",flexDirection:"column",alignItems:"center",gap:6,
+          position:"relative",
+        }
+      },
+        done && h("div",{style:{
+          position:"absolute",top:8,right:9,
+          ...PF,fontSize:7,color:GRN,
+          animation:"checkPop 0.3s ease-out",
+        }},"✓"),
+        h("span",{style:{fontSize:26}},cat.icon),
+        h("span",{style:{fontSize:12,fontWeight:700,color:DARK,lineHeight:1.4,textAlign:"center",padding:"0 4px"}},cat.label),
+        h("div",{style:{
+          position:"absolute",bottom:0,left:0,right:0,height:3,
+          background:done?cat.color:LGRAY,
+          borderRadius:"0 0 10px 10px",
+        }})
+      );
+    })
   );
 }
 
-// ── 메인 앱 ───────────────────────────────────────────
+// ── 메인 앱 ──────────────────────────────────────────────
 function QuickApp() {
   const [user,setUser]=useState(null);
   const [loading,setLoading]=useState(true);
   const [entry,setEntry]=useState(null);
   const [activeForm,setActiveForm]=useState(null);
   const [tab,setTab]=useState("기록");
-  const [toast,setToast]=useState(null);
+  const [saveAnim,setSaveAnim]=useState(null); // {xp}
   const today=getToday();
+  const dayNum=getDayNum();
 
   useEffect(()=>auth.onAuthStateChanged(u=>{setUser(u);setLoading(false);}),[]);
   useEffect(()=>{
@@ -599,28 +791,27 @@ function QuickApp() {
     });
   },[user]);
 
-  const saveEntry = async (updated) => {
+  const saveEntry=async(updated,xp=0)=>{
     const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${today}`);
     await ref.set({value:JSON.stringify(updated)});
-    setToast("저장됐어요 ✓");
-    setTimeout(()=>setToast(null),2500);
+    setSaveAnim({xp});
     setActiveForm(null);
     setTab("오늘");
   };
 
-  if(loading) return h("div",{style:{textAlign:"center",paddingTop:80,color:PU,fontSize:14}},"로딩 중...");
+  if(loading) return h("div",{style:{textAlign:"center",paddingTop:80,color:TXT2,fontSize:14}},"로딩 중...");
 
-  if(!user) return h("div",{style:{maxWidth:360,margin:"0 auto",padding:"120px 24px 0",textAlign:"center"}},
-    h("div",{style:{fontFamily:"'Press Start 2P'",fontSize:14,color:PU,marginBottom:8,lineHeight:1.8}},"BALANCE"),
-    h("div",{style:{color:"#9B7FD4",marginBottom:40,fontSize:13}},"빠른 기록"),
+  if(!user) return h("div",{style:{maxWidth:360,margin:"0 auto",padding:"80px 24px 0",textAlign:"center",background:BG,minHeight:"100vh"}},
+    h("div",{style:{...PF,fontSize:16,color:DARK,marginBottom:6,lineHeight:2}},"BALANCE"),
+    h("div",{style:{...PF,fontSize:8,color:PINK,marginBottom:40}},"WELLNESS TRACKER"),
     h("button",{
       onClick:()=>{const p=new firebase.auth.GoogleAuthProvider();auth.signInWithPopup(p);},
-      style:{background:PU,color:"#fff",border:"none",borderRadius:14,padding:"16px 0",
-        fontSize:15,fontWeight:700,cursor:"pointer",width:"100%"}
-    },"Google로 로그인")
+      style:{background:PINK,color:WHITE,border:"none",borderRadius:10,padding:"16px 0",
+        fontSize:14,fontWeight:700,cursor:"pointer",width:"100%"}
+    },"▶  Google로 로그인")
   );
 
-  const FORMS = {
+  const FORMS={
     morning:    h(MorningForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
     evening:    h(EveningForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
     exercise:   h(ExerciseForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
@@ -633,31 +824,43 @@ function QuickApp() {
     rest:       h(RestForm,{entry,onSave:saveEntry,onCancel:()=>setActiveForm(null)}),
   };
 
-  const [,mo,dd] = today.split("-");
-  const TABS = ["기록","오늘","보관함"];
+  const TABS=[
+    {key:"기록", icon:"📝"},
+    {key:"오늘", icon:"📋"},
+    {key:"보관함", icon:"📅"},
+  ];
 
-  return h("div",{style:{maxWidth:440,margin:"0 auto",paddingBottom:90}},
-    // 상단 헤더
+  const [,mo,dd]=today.split("-");
+
+  return h("div",{style:{maxWidth:440,margin:"0 auto",paddingBottom:88,background:BG,minHeight:"100vh"}},
+
+    // ── 저장 애니메이션 오버레이 ──
+    saveAnim && h(SaveAnim,{xp:saveAnim.xp,onDone:()=>setSaveAnim(null)}),
+
+    // ── 헤더 ──
     h("div",{style:{
-      padding:"20px 16px 14px", borderBottom:"1px solid #2A1F4A",
-      display:"flex", alignItems:"center", justifyContent:"space-between"
+      background:BG,
+      borderBottom:`2px solid ${LGRAY}`,
+      padding:"14px 16px 10px",
     }},
-      h("div",null,
-        h("div",{style:{fontFamily:"'Press Start 2P'",fontSize:10,color:PU,letterSpacing:1,marginBottom:3}},"BALANCE"),
-        h("div",{style:{fontSize:16,fontWeight:800}}, `${+mo}월 ${+dd}일`)
+      h("div",{style:{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:8}},
+        h("div",null,
+          h("div",{style:{...PF,fontSize:12,color:DARK,letterSpacing:1,marginBottom:2}},"BALANCE"),
+          h("div",{style:{...PF,fontSize:8,color:GRN}},`DAY ${String(dayNum).padStart(3,"0")}`)
+        ),
+        h("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          h("a",{href:"index.html",style:{
+            fontSize:11,color:TXT2,textDecoration:"none",
+            padding:"5px 9px",background:WHITE,border:`2px solid ${LGRAY}`,
+            borderRadius:6,fontWeight:700,
+          }},"전체 앱 →")
+        )
       ),
-      h("a",{href:"index.html",style:{fontSize:11,color:"#9B7FD4",textDecoration:"none",padding:"6px 10px",
-        background:"#2A1F4A",borderRadius:8}}, "전체 앱 →")
+      h(XPBar,{entry})
     ),
 
-    // 토스트
-    toast && h("div",{style:{
-      background:PU,color:"#fff",padding:"12px 0",textAlign:"center",
-      fontWeight:700,fontSize:14,marginBottom:0
-    }},toast),
-
-    // 본문
-    h("div",{style:{padding:"16px 16px 0"}},
+    // ── 본문 ──
+    h("div",{style:{padding:"14px 14px 0"}},
       activeForm
         ? FORMS[activeForm]
         : tab==="기록" ? h(CategoryGrid,{entry,onSelect:setActiveForm})
@@ -665,24 +868,26 @@ function QuickApp() {
         : h(Archive,{user})
     ),
 
-    // 하단 탭
+    // ── 하단 탭 ──
     h("div",{style:{
       position:"fixed",bottom:0,left:0,right:0,
-      background:"#1A1033",borderTop:"2px solid #2A1F4A",
-      display:"flex",justifyContent:"space-around",padding:"10px 0 20px",
-      maxWidth:440,margin:"0 auto"
+      background:DARK,
+      display:"flex",justifyContent:"space-around",
+      padding:"10px 0 22px",
+      maxWidth:440,margin:"0 auto",
     }},
       TABS.map(t=>h("button",{
-        key:t, onClick:()=>{setActiveForm(null);setTab(t);},
+        key:t.key, onClick:()=>{setActiveForm(null);setTab(t.key);},
         style:{
           background:"none",border:"none",cursor:"pointer",
-          color:tab===t&&!activeForm?PU:"#9B7FD4",
+          color: tab===t.key&&!activeForm ? YEL : LGRAY,
           fontWeight:700,fontSize:12,fontFamily:"inherit",
-          display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 20px"
+          display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+          padding:"4px 20px",
         }
       },
-        h("span",{style:{fontSize:20}}, t==="기록"?"📝":t==="오늘"?"📋":"📅"),
-        h("span",null, t)
+        h("span",{style:{fontSize:20}},t.icon),
+        h("span",{style:{...PF,fontSize:6}},t.key)
       ))
     )
   );
