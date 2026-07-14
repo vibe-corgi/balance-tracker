@@ -142,129 +142,81 @@ function MemoArea({ value, onChange, placeholder="메모 (선택)" }) {
   });
 }
 
-// ── 드럼롤 휠 피커 ──────────────────────────────────────
-function WheelCol({ items, value, onChange, width=90 }) {
-  const ref   = useRef(null);
-  const timer = useRef(null);
-  const prog  = useRef(false);
-  const prev  = useRef(value);
-
-  // 초기 + value 변경 시 스크롤 위치 동기화 (RAF로 iOS 안정화)
-  useEffect(() => {
-    const i = items.indexOf(String(value));
-    if (ref.current && i >= 0 && value !== prev.current) {
-      prog.current = true;
-      requestAnimationFrame(() => {
-        if (ref.current) {
-          ref.current.scrollTop = i * ITEM_H;
-          setTimeout(() => { prog.current = false; }, 100);
-        }
-      });
-    }
-    prev.current = value;
-  }, [value]);
-
-  // 마운트 시 초기 위치 설정
-  useEffect(() => {
-    const i = items.indexOf(String(value));
-    if (ref.current && i >= 0) {
-      prog.current = true;
-      requestAnimationFrame(() => {
-        if (ref.current) {
-          ref.current.scrollTop = i * ITEM_H;
-          setTimeout(() => { prog.current = false; }, 100);
-        }
-      });
-    }
-  }, []);
-
-  const onScroll = () => {
-    if (prog.current) return;
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      if (!ref.current) return;
-      const i  = Math.round(ref.current.scrollTop / ITEM_H);
-      const ci = Math.max(0, Math.min(i, items.length - 1));
-      prog.current = true;
-      ref.current.scrollTo({ top: ci * ITEM_H, behavior: "smooth" });
-      setTimeout(() => { prog.current = false; }, 200);
-      if (items[ci] !== prev.current) {
-        prev.current = items[ci];
-        onChange(items[ci]);
-      }
-    }, 80);
-  };
-
-  return h("div", {
-    ref, onScroll, className: "wc",
-    style: {
-      width, height: ITEM_H * 5, overflowY: "scroll",
-      scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch",
-      scrollbarWidth: "none", msOverflowStyle: "none",
-    }
-  },
-    h("div", { style: { height: ITEM_H * 2 } }),
-    items.map(item =>
-      h("div", { key: item, style: {
-        height: ITEM_H, scrollSnapAlign: "center", scrollSnapStop: "always",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 17, fontWeight: item === value ? 800 : 400,
-        color: item === value ? "#fff" : "rgba(155,127,212,0.4)",
-        userSelect: "none", WebkitUserSelect: "none",
-        transition: "color 0.15s, font-weight 0.15s",
-      }}, item)
-    ),
-    h("div", { style: { height: ITEM_H * 2 } })
-  );
+// ── 스텝 시간 피커 ──────────────────────────────────────
+function AB({ label, onClick }) {
+  return h("button", { onClick, style: {
+    background: "#3D2E6B", border: "none", color: "#C4AAEE", fontSize: 12,
+    cursor: "pointer", borderRadius: 6, width: 32, height: 36,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontWeight: 900, flexShrink: 0
+  }}, label);
 }
 
-function TimeWheelInput({ value, onChange }) {
-  const {ap:iAP, h12:iH, min:iM} = parseTime(value);
-  const [ap,setAp] = useState(iAP);
-  const [hr,setHr] = useState(iH);
-  const [mn,setMn] = useState(iM);
-  const cur = useRef({ap:iAP,hr:iH,mn:iM});
+function TimeStepRow({ value, onChange }) {
+  const p = parseTime(value);
+  const [apS, setAp] = useState(p.ap);
+  const [hrS, setHr] = useState(p.h12);
+  const [mnS, setMn] = useState(p.min);
+  const cur = useRef({ ap: p.ap, hr: p.h12, mn: p.min });
+  const emit = (a, h, m) => { cur.current={ap:a,hr:h,mn:m}; onChange(buildTime(a,h,m)); };
 
-  const emit = (a,h,m) => {
-    cur.current={ap:a,hr:h,mn:m};
-    onChange(buildTime(a,h,m));
+  const toggleAP = () => {
+    const n = apS==="오전"?"오후":"오전";
+    setAp(n); emit(n, cur.current.hr, cur.current.mn);
+  };
+  const adjHr = d => {
+    const i = HOURS.indexOf(hrS);
+    const n = HOURS[(i+d+12)%12];
+    setHr(n); emit(cur.current.ap, n, cur.current.mn);
+  };
+  const adjMn = d => {
+    const m = parseInt(mnS);
+    const n = String(((m+d)%60+60)%60).padStart(2,"0");
+    setMn(n); emit(cur.current.ap, cur.current.hr, n);
   };
 
-  return h("div",{style:{position:"relative",background:"#2A1F4A",border:"2px solid #3D2E6B",borderRadius:12,overflow:"hidden"}},
-    h("div",{style:{position:"absolute",top:ITEM_H*2,left:0,right:0,height:ITEM_H,
-      background:"rgba(155,111,199,0.18)",
-      borderTop:"1.5px solid rgba(155,111,199,0.5)",
-      borderBottom:"1.5px solid rgba(155,111,199,0.5)",
-      pointerEvents:"none",zIndex:1}}),
-    h("div",{style:{position:"absolute",top:0,left:0,right:0,height:ITEM_H*2,
-      background:"linear-gradient(to bottom,#2A1F4A 15%,transparent)",
-      pointerEvents:"none",zIndex:2}}),
-    h("div",{style:{position:"absolute",bottom:0,left:0,right:0,height:ITEM_H*2,
-      background:"linear-gradient(to top,#2A1F4A 15%,transparent)",
-      pointerEvents:"none",zIndex:2}}),
-    h("div",{style:{display:"flex",alignItems:"center"}},
-      h(WheelCol,{items:AMPM, value:ap, width:90, onChange:v=>{setAp(v);emit(v,cur.current.hr,cur.current.mn);}}),
-      h("div",{style:{width:1,height:ITEM_H*5,background:"#3D2E6B",flexShrink:0}}),
-      h(WheelCol,{items:HOURS,value:hr, width:90, onChange:v=>{setHr(v);emit(cur.current.ap,v,cur.current.mn);}}),
-      h("div",{style:{width:22,display:"flex",alignItems:"center",justifyContent:"center",
-        fontSize:18,fontWeight:900,color:"#9B7FD4",flexShrink:0}},":"),
-      h(WheelCol,{items:MINS, value:mn, width:90, onChange:v=>{setMn(v);emit(cur.current.ap,cur.current.hr,v);}})
-    )
+  const numBox = v => h("div", { style: {
+    fontSize: 22, fontWeight: 800, color: "#fff", width: 36,
+    textAlign: "center", fontVariantNumeric: "tabular-nums", flexShrink: 0
+  }}, v);
+
+  return h("div", { style: { display:"flex", alignItems:"center", gap:5, padding:"10px 12px" }},
+    h("button", { onClick: toggleAP, style: {
+      background: PU, border: "none", color: "#fff", cursor: "pointer",
+      borderRadius: 8, padding: "9px 11px", fontSize: 14, fontWeight: 800,
+      flexShrink: 0, minWidth: 52, textAlign: "center"
+    }}, apS),
+    h("div", { style: { flex: 1 }}),
+    h(AB, { label: "◀", onClick: ()=>adjHr(-1) }),
+    numBox(hrS),
+    h(AB, { label: "▶", onClick: ()=>adjHr(1) }),
+    h("span", { style: { color: PU, fontSize: 20, fontWeight: 900, padding: "0 3px", flexShrink: 0 }}, ":"),
+    h(AB, { label: "◀", onClick: ()=>adjMn(-1) }),
+    numBox(mnS),
+    h(AB, { label: "▶", onClick: ()=>adjMn(1) })
   );
 }
 
 function TimeInput({ value, onChange, label }) {
   return h("div", null,
-    label && h("label", {style:labelSt}, label),
-    h(TimeWheelInput, { value, onChange })
+    label && h("label", { style: labelSt }, label),
+    h("div", { style: { background:"#2A1F4A", border:"2px solid #3D2E6B", borderRadius:12, overflow:"hidden" }},
+      h(TimeStepRow, { value, onChange })
+    )
   );
 }
 
 function TimeRange({ start, end, onStart, onEnd }) {
-  return h("div", { style:{display:"flex",gap:10,alignItems:"flex-end"} },
-    h("div",{style:{flex:1}}, h(TimeInput,{value:start, onChange:onStart, label:"시작"})),
-    h("div",{style:{color:PU, fontWeight:900, paddingBottom:14, flexShrink:0}}, "~"),
-    h("div",{style:{flex:1}}, h(TimeInput,{value:end, onChange:onEnd, label:"종료"}))
+  return h("div", { style: { background:"#2A1F4A", border:"2px solid #3D2E6B", borderRadius:12, overflow:"hidden" }},
+    h("div", { style: { padding:"8px 12px 0" }},
+      h("label", { style: { ...labelSt, marginBottom: 0 }}, "시작")
+    ),
+    h(TimeStepRow, { value: start, onChange: onStart }),
+    h("div", { style: { height: 1, background: "#3D2E6B", margin: "0 12px" }}),
+    h("div", { style: { padding:"8px 12px 0" }},
+      h("label", { style: { ...labelSt, marginBottom: 0 }}, "종료")
+    ),
+    h(TimeStepRow, { value: end, onChange: onEnd })
   );
 }
 
