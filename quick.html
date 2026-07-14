@@ -121,7 +121,7 @@ const BATH_FEELS  = ["매우 좋음","좋음","보통","불편","매우 불편"]
 const BATH_SCORE  = {"매우 좋음":100,"좋음":80,"보통":60,"불편":40,"매우 불편":20};
 const LV_EMOJI    = ["","😞","😕","😐","🙂","😊"];
 
-function computeQuickScore(entry) {
+function computeQuickScore(entry, prevEntry) {
   if(!entry) return null;
   const parts = [];
 
@@ -166,22 +166,50 @@ function computeQuickScore(entry) {
   let bathV=null;
   if(bathEvs.length){ bathV=bathEvs.reduce((a,e)=>a+(BATH_SCORE[e.feel]??60),0)/bathEvs.length; parts.push({key:"bathroom",v:bathV,w:5}); }
 
+  // 공복 (어제 마지막 식사 → 오늘 첫 식사)
+  let fastV=null, fastVal=null;
+  const prevMeals=(prevEntry?.events||[]).filter(e=>e.type==="meal").map(e=>e.time).sort();
+  const todayMeals=meals.map(e=>e.time).sort();
+  if(prevMeals.length && todayMeals.length){
+    const fastMin=1440-toMin(prevMeals[prevMeals.length-1])+toMin(todayMeals[0]);
+    const fastH=fastMin/60;
+    fastV=Math.min(100,fastH/12*100);
+    fastVal=`${fastH.toFixed(1)}h`;
+    parts.push({key:"fasting", v:fastV, w:15});
+  }
+
+  // 수면 (어제 취침 → 오늘 기상)
+  let sleepV=null, sleepVal=null;
+  const prevBed=prevEntry?.evening?.bedTime??null;
+  const wakeTime=entry.morning?.wakeTime??null;
+  if(prevBed && wakeTime){
+    const bedMin=toMin(prevBed), wakeMin=toMin(wakeTime);
+    const sleepMin=bedMin>wakeMin ? 1440-bedMin+wakeMin : wakeMin-bedMin;
+    const sleepH=sleepMin/60;
+    const sMin=6, sMax=8;
+    sleepV=sleepH<sMin ? Math.max(0,100-Math.ceil((sMin-sleepH)/0.5)*20)
+          :sleepH>sMax ? Math.max(0,100-Math.ceil((sleepH-sMax)/0.5)*10)
+          :100;
+    sleepVal=`${sleepH.toFixed(1)}h`;
+    parts.push({key:"sleep", v:sleepV, w:12});
+  }
+
   if(!parts.length) return null;
   const total=Math.round(parts.reduce((a,p)=>a+p.v*p.w,0)/100);
 
   // 전체 행 (웹과 동일한 순서)
   const allRows=[
-    {key:"morning",   label:"☀️ 아침",   w:5,  v:morningV,                           val:entry.morning?`${entry.morning.level}/5`:null},
-    {key:"evening",   label:"🌙 저녁",   w:10, v:eveningV,                           val:entry.evening?`${entry.evening.level}/5`:null},
-    {key:"fasting",   label:"⏱️ 공복",   w:15, v:null,                               val:null, note:"웹 앱"},
-    {key:"food",      label:"🍽️ 음식",   w:15, v:foodV,                              val:meals.length?`${meals.length}회`:null},
-    {key:"hydration", label:"💧 수분",   w:10, v:hydV,                               val:hydMl>0?`${(hydMl/1000).toFixed(1)}L`:null},
-    {key:"healthDrink",label:"🫖 건강음료",w:3, v:healthCups>=1?100:null,             val:healthCups>0?`${healthCups}잔`:null},
-    {key:"exercise",  label:"💪 운동",   w:15, v:exV,                                val:exMin>0?fmtDur(exMin):null},
-    {key:"meditation",label:"🧘 명상",   w:10, v:medV,                               val:medMin>0?fmtDur(medMin):null},
-    {key:"rest",      label:"💤 휴식",   w:0,  v:null,                               val:restMin>0?fmtDur(restMin):null},
-    {key:"bathroom",  label:"🚽 화장실", w:5,  v:bathV,                              val:bathEvs.length?`${bathEvs.length}회`:null},
-    {key:"sleep",     label:"😴 수면",   w:12, v:null,                               val:null, note:"웹 앱"},
+    {key:"morning",    label:"☀️ 아침",    w:5,  v:morningV,              val:entry.morning?`${entry.morning.level}/5`:null},
+    {key:"evening",    label:"🌙 저녁",    w:10, v:eveningV,              val:entry.evening?`${entry.evening.level}/5`:null},
+    {key:"fasting",    label:"⏱️ 공복",    w:15, v:fastV,                 val:fastVal},
+    {key:"food",       label:"🍽️ 음식",    w:15, v:foodV,                 val:meals.length?`${meals.length}회`:null},
+    {key:"hydration",  label:"💧 수분",    w:10, v:hydV,                  val:hydMl>0?`${(hydMl/1000).toFixed(1)}L`:null},
+    {key:"healthDrink",label:"🍵 건강음료",w:3,  v:healthCups>=1?100:null,val:healthCups>0?`${healthCups}잔`:null},
+    {key:"exercise",   label:"💪 운동",    w:15, v:exV,                   val:exMin>0?fmtDur(exMin):null},
+    {key:"meditation", label:"🧘 명상",    w:10, v:medV,                  val:medMin>0?fmtDur(medMin):null},
+    {key:"rest",       label:"💤 휴식",    w:0,  v:null,                  val:restMin>0?fmtDur(restMin):null},
+    {key:"bathroom",   label:"🚽 화장실",  w:5,  v:bathV,                 val:bathEvs.length?`${bathEvs.length}회`:null},
+    {key:"sleep",      label:"😴 수면",    w:12, v:sleepV,                val:sleepVal},
   ];
   return {total, parts, allRows};
 }
@@ -593,12 +621,12 @@ function RestForm({entry,onSave,onCancel,editEv}) {
 }
 
 // ── 오늘의 흐름 ───────────────────────────────────────────
-function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteEvent }) {
+function TodayFlow({ entry, prevEntry, onEditMorning, onEditEvening, onEditEvent, onDeleteEvent }) {
   const [showDetail, setShowDetail] = useState(false);
 
   if(!entry) return h("div",{style:{textAlign:"center",color:TXT2,paddingTop:40,fontSize:13}},"오늘 기록이 없어요");
 
-  const score = computeQuickScore(entry);
+  const score = computeQuickScore(entry, prevEntry);
   const catMap = Object.fromEntries(CATS.map(c=>[c.id,c]));
   const items = [];
   if(entry.morning?.wakeTime) items.push({time:entry.morning.wakeTime,type:"wake",data:entry.morning});
@@ -811,6 +839,7 @@ function QuickApp() {
   const [user,setUser]=useState(null);
   const [loading,setLoading]=useState(true);
   const [entry,setEntry]=useState(null);
+  const [prevEntry,setPrevEntry]=useState(null);
   const [activeForm,setActiveForm]=useState(null);
   const [editEv,setEditEv]=useState(null);
   const [tab,setTab]=useState("기록");
@@ -821,10 +850,14 @@ function QuickApp() {
   useEffect(()=>{
     if(!user)return;
     const ref=db.collection("users").doc(user.uid).collection("data").doc(`entry:${today}`);
-    return ref.onSnapshot(snap=>{
+    const unsub=ref.onSnapshot(snap=>{
       if(snap.exists){try{setEntry(JSON.parse(snap.data().value));}catch{setEntry({date:today,events:[]});}}
       else setEntry({date:today,morning:null,evening:null,events:[]});
     });
+    // 어제 데이터 (공복·수면 계산용)
+    db.collection("users").doc(user.uid).collection("data").doc(`entry:${getDateStr(1)}`).get()
+      .then(snap=>{ if(snap.exists){try{setPrevEntry(JSON.parse(snap.data().value));}catch{}} });
+    return unsub;
   },[user]);
 
   const saveEntry=async(updated)=>{
@@ -909,6 +942,7 @@ function QuickApp() {
         : tab==="기록" ? h(CategoryGrid,{entry,onSelect:setActiveForm})
         : tab==="오늘" ? h(TodayFlow,{
             entry,
+            prevEntry,
             onEditMorning:()=>openEdit("morning"),
             onEditEvening:()=>openEdit("evening"),
             onEditEvent:(ev)=>openEdit(ev.type,ev),
