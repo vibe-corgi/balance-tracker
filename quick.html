@@ -124,12 +124,17 @@ const LV_EMOJI    = ["","😞","😕","😐","🙂","😊"];
 function computeQuickScore(entry) {
   if(!entry) return null;
   const parts = [];
-  if(entry.morning) parts.push({key:"morning",  label:"☀️ 아침",  v:entry.morning.level/5*100, w:5,  val:`${entry.morning.level}/5`});
-  if(entry.evening) parts.push({key:"evening",  label:"🌙 저녁",  v:entry.evening.level/5*100, w:10, val:`${entry.evening.level}/5`});
+
+  const morningV = entry.morning ? entry.morning.level/5*100 : null;
+  const eveningV = entry.evening ? entry.evening.level/5*100 : null;
+  if(morningV!=null) parts.push({key:"morning", v:morningV, w:5});
+  if(eveningV!=null) parts.push({key:"evening", v:eveningV, w:10});
+
   const meals=(entry.events||[]).filter(e=>e.type==="meal");
   const mealRated=meals.filter(e=>e.feel||e.hunger);
+  let foodV=null;
   if(mealRated.length){
-    const fv=mealRated.reduce((a,e)=>{
+    foodV=mealRated.reduce((a,e)=>{
       const q=e.feel?(HEALTH_MAP[e.feel]??60):null;
       const hv=e.hunger?(HUNGER_MAP[e.hunger]??null):null;
       if(q!=null&&hv!=null)return a+q*0.6+hv*0.4;
@@ -137,22 +142,48 @@ function computeQuickScore(entry) {
       if(hv!=null)return a+hv;
       return a+60;
     },0)/mealRated.length;
-    parts.push({key:"food",      label:"🍽️ 식사",  v:fv,                         w:15, val:`${meals.length}회`});
+    parts.push({key:"food", v:foodV, w:15});
   }
-  const exMin=(entry.events||[]).filter(e=>e.type==="exercise").reduce((a,e)=>a+(e.duration||0),0);
-  if(exMin>0) parts.push({key:"exercise",  label:"💪 운동",  v:Math.min(100,exMin/30*100),  w:15, val:fmtDur(exMin)});
-  const medMin=(entry.events||[]).filter(e=>e.type==="meditation").reduce((a,e)=>a+(e.duration||0),0);
-  if(medMin>0) parts.push({key:"meditation",label:"🧘 명상",  v:Math.min(100,medMin/20*100), w:10, val:fmtDur(medMin)});
+
   const hydMl=(entry.events||[]).filter(e=>e.type==="hydration"&&(e.hydType==="water"||e.hydType==="tea")).reduce((a,e)=>a+(Number(e.amountMl)||0),0);
-  if(hydMl>0) parts.push({key:"hydration", label:"💧 수분",  v:Math.min(100,hydMl/1500*100),w:10, val:`${(hydMl/1000).toFixed(1)}L`});
+  const hydV=hydMl>0?Math.min(100,hydMl/1500*100):null;
+  if(hydV!=null) parts.push({key:"hydration", v:hydV, w:10});
+
+  const healthCups=(entry.events||[]).filter(e=>e.type==="hydration"&&e.hydType==="health").reduce((a,e)=>a+(Number(e.cups)||1),0);
+  if(healthCups>=1) parts.push({key:"healthDrink", v:100, w:3});
+
+  const exMin=(entry.events||[]).filter(e=>e.type==="exercise").reduce((a,e)=>a+(e.duration||0),0);
+  const exV=exMin>0?Math.min(100,exMin/30*100):null;
+  if(exV!=null) parts.push({key:"exercise", v:exV, w:15});
+
+  const medMin=(entry.events||[]).filter(e=>e.type==="meditation").reduce((a,e)=>a+(e.duration||0),0);
+  const medV=medMin>0?Math.min(100,medMin/20*100):null;
+  if(medV!=null) parts.push({key:"meditation", v:medV, w:10});
+
+  const restMin=(entry.events||[]).filter(e=>e.type==="rest").reduce((a,e)=>a+(e.duration||0),0);
+
   const bathEvs=(entry.events||[]).filter(e=>e.type==="bathroom"&&e.feel);
-  if(bathEvs.length){
-    const bv=bathEvs.reduce((a,e)=>a+(BATH_SCORE[e.feel]??60),0)/bathEvs.length;
-    parts.push({key:"bathroom",  label:"🚽 화장실",v:bv,                          w:5,  val:`${bathEvs.length}회`});
-  }
+  let bathV=null;
+  if(bathEvs.length){ bathV=bathEvs.reduce((a,e)=>a+(BATH_SCORE[e.feel]??60),0)/bathEvs.length; parts.push({key:"bathroom",v:bathV,w:5}); }
+
   if(!parts.length) return null;
   const total=Math.round(parts.reduce((a,p)=>a+p.v*p.w,0)/100);
-  return {total, parts};
+
+  // 전체 행 (웹과 동일한 순서)
+  const allRows=[
+    {key:"morning",   label:"☀️ 아침",   w:5,  v:morningV,                           val:entry.morning?`${entry.morning.level}/5`:null},
+    {key:"evening",   label:"🌙 저녁",   w:10, v:eveningV,                           val:entry.evening?`${entry.evening.level}/5`:null},
+    {key:"fasting",   label:"⏱️ 공복",   w:15, v:null,                               val:null, note:"웹 앱"},
+    {key:"food",      label:"🍽️ 음식",   w:15, v:foodV,                              val:meals.length?`${meals.length}회`:null},
+    {key:"hydration", label:"💧 수분",   w:10, v:hydV,                               val:hydMl>0?`${(hydMl/1000).toFixed(1)}L`:null},
+    {key:"healthDrink",label:"🫖 건강음료",w:3, v:healthCups>=1?100:null,             val:healthCups>0?`${healthCups}잔`:null},
+    {key:"exercise",  label:"💪 운동",   w:15, v:exV,                                val:exMin>0?fmtDur(exMin):null},
+    {key:"meditation",label:"🧘 명상",   w:10, v:medV,                               val:medMin>0?fmtDur(medMin):null},
+    {key:"rest",      label:"💤 휴식",   w:0,  v:null,                               val:restMin>0?fmtDur(restMin):null},
+    {key:"bathroom",  label:"🚽 화장실", w:5,  v:bathV,                              val:bathEvs.length?`${bathEvs.length}회`:null},
+    {key:"sleep",     label:"😴 수면",   w:12, v:null,                               val:null, note:"웹 앱"},
+  ];
+  return {total, parts, allRows};
 }
 
 // ── 헬퍼 ─────────────────────────────────────────────────
@@ -592,11 +623,7 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
           h("span",{style:{...PF,fontSize:30,color:PU,lineHeight:1}}, score ? score.total : "—"),
           score && h("span",{style:{fontSize:13,color:TXT2,fontWeight:700}},"점")
         ),
-        h("div",{style:{display:"flex",gap:12,marginTop:8}},
-          entry.morning && h("span",{style:{fontSize:13,color:INK,fontWeight:700}},`☀️ ${entry.morning.level}/5`),
-          entry.evening && h("span",{style:{fontSize:13,color:INK,fontWeight:700}},`🌙 ${entry.evening.level}/5`),
-          !entry.morning && !entry.evening && h("span",{style:{fontSize:12,color:TXT2}},"컨디션 미기록")
-        )
+        !score && h("span",{style:{fontSize:12,color:TXT2,marginTop:6,display:"block"}},"기록을 추가하면 점수가 계산돼요")
       ),
       score && h("button",{
         onClick:()=>setShowDetail(v=>!v),
@@ -611,23 +638,26 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
     showDetail && score && h("div",{style:{
       marginTop:14,paddingTop:14,borderTop:`1px solid ${BDR}`,
     }},
-      score.parts.map(p=>h("div",{key:p.key,style:{
-        display:"flex",alignItems:"center",gap:8,marginBottom:10,
+      score.allRows.map(p=>h("div",{key:p.key,style:{
+        display:"flex",alignItems:"center",gap:8,marginBottom:9,
       }},
-        h("span",{style:{fontSize:12,color:INK,fontWeight:700,minWidth:80}},p.label),
+        h("span",{style:{fontSize:12,color:p.v!=null?INK:TXT2,fontWeight:700,minWidth:82}},p.label),
         h("div",{style:{
           flex:1,background:"rgba(155,111,199,0.12)",borderRadius:4,height:6,overflow:"hidden",
         }},
-          h("div",{style:{height:"100%",background:PU,width:`${p.v}%`,borderRadius:4,transition:"width 0.4s ease"}})
+          p.v!=null && h("div",{style:{height:"100%",background:p.note?"rgba(155,111,199,0.3)":PU,width:`${p.v}%`,borderRadius:4,transition:"width 0.4s ease"}})
         ),
-        h("span",{style:{fontSize:11,color:TXT2,fontWeight:700,minWidth:32,textAlign:"right"}},p.val),
-        h("span",{style:{fontSize:11,color:PU,fontWeight:800,minWidth:30,textAlign:"right"}},`${Math.round(p.v)}점`)
+        h("span",{style:{fontSize:11,color:TXT2,fontWeight:700,minWidth:36,textAlign:"right"}},
+          p.note ? p.note : (p.val ?? "-")
+        ),
+        h("span",{style:{fontSize:11,color:p.v!=null?PU:"rgba(155,111,199,0.35)",fontWeight:800,minWidth:32,textAlign:"right"}},
+          p.v!=null ? `${Math.round(p.v)}점` : (p.w>0?`×${p.w}`:"")
+        )
       )),
       h("div",{style:{
         marginTop:8,paddingTop:8,borderTop:`1px solid ${BDR}`,
-        display:"flex",justifyContent:"space-between",alignItems:"center",
+        display:"flex",justifyContent:"flex-end",alignItems:"center",
       }},
-        h("span",{style:{fontSize:11,color:TXT2}},"수면·공복 점수는 웹 앱에서 확인"),
         h("span",{style:{...PF,fontSize:9,color:PU}},`합계 ${score.total}점`)
       )
     )
