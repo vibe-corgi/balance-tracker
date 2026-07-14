@@ -1,0 +1,45 @@
+name: BALANCE Quick Entry
+
+on:
+  repository_dispatch:
+    types: [quick_entry]
+
+jobs:
+  write-entry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Firebase key
+        env:
+          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY_JSON }}
+        run: |
+          python3 -c "import os,json; d=json.loads(os.environ['FIREBASE_KEY']); open('/tmp/firebase-key.pem','w').write(d['private_key'])"
+
+      - name: Get Firestore access token
+        id: auth
+        run: |
+          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          CE="firebase-adminsdk-fbsvc@balance-408f1.iam.gserviceaccount.com"
+          NOW=$(date +%s); EXP=$((NOW + 3600))
+          H=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+          C=$(printf '{"iss":"%s","scope":"https://www.googleapis.com/auth/datastore","aud":"https://oauth2.googleapis.com/token","iat":%d,"exp":%d}' "$CE" "$NOW" "$EXP" | b64url)
+          U="$H.$C"
+          S=$(printf '%s' "$U" | openssl dgst -sha256 -sign /tmp/firebase-key.pem -binary | b64url)
+          TK=$(curl -s -X POST "https://oauth2.googleapis.com/token" \
+            -d "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=$U.$S" \
+            | jq -r '.access_token')
+          echo "::add-mask::$TK"
+          echo "token=$TK" >> $GITHUB_OUTPUT
+
+      - name: Write entry to Firestore
+        env:
+          FB_TOKEN: ${{ steps.auth.outputs.token }}
+          EVENT_PAYLOAD: ${{ toJson(github.event.client_payload) }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: bash .github/scripts/quick-entry.sh
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/firebase-key.pem
