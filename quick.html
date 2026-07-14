@@ -88,7 +88,7 @@ const CELE  = ["#FF77A8","#FFCC54","#008751","#29ADFF","#AB47BC","#FF4136"];
 
 // ── 카테고리 & 상수 ────────────────────────────────────────
 const CATS = [
-  { id:"morning",    icon:"🌤️", label:"아침 컨디션", color:"#E8A020" },
+  { id:"morning",    icon:"☀️", label:"아침 컨디션", color:"#E8A020" },
   { id:"evening",    icon:"🌙", label:"저녁 컨디션", color:"#5B6FD4" },
   { id:"exercise",   icon:"💪", label:"운동",        color:"#E05050" },
   { id:"meal",       icon:"🍽️", label:"식사",        color:"#3D9E45" },
@@ -106,7 +106,7 @@ const EMOTIONS = [
   {name:"평온",emoji:"🌊"},{name:"감사",emoji:"🙏"},{name:"뿌듯",emoji:"😁"},
   {name:"상쾌",emoji:"✨"},{name:"활력",emoji:"⚡"},{name:"기쁨",emoji:"😄"},
 ];
-const FEEL_OPTS  = ["아주 잘 맞음","잘 맞음","보통","안 맞음","아주 안 맞음"];
+const MEAL_HEALTH = ["🥗 건강식","🙂 건강","😐 보통","🍟 정크","🍔 완전정크"];
 const HYD_TYPES  = [
   { key:"water",      label:"물",       ml:true  },
   { key:"tea",        label:"차",       ml:true  },
@@ -311,7 +311,7 @@ function MorningForm({entry,onSave,onCancel}) {
   const [wake,setWake]=useState(ex?.wakeTime??nowHM());
   const [note,setNote]=useState(ex?.note??"");
   const [period,setPeriod]=useState(ex?.period??false);
-  return h(FormWrap,{title:"🌤️ 아침 컨디션",onCancel,onSave:()=>{
+  return h(FormWrap,{title:"☀️ 아침 컨디션",onCancel,onSave:()=>{
     if(!lv)return alert("컨디션을 선택해줘요");
     onSave({...entry,morning:{level:lv,wakeTime:wake,note,period}});
   }},
@@ -372,8 +372,8 @@ function MealForm({entry,onSave,onCancel,editEv}) {
       h(MemoArea,{value:label,onChange:setLabel,placeholder:"점심, 한식, 샐러드..."})
     ),
     h("div",{style:secSt},
-      h("label",{style:labelSt},"몸에 어땠나요? (선택)"),
-      h(ScaleRow,{options:FEEL_OPTS,value:feel,onChange:setFeel})
+      h("label",{style:labelSt},"건강하게 먹었나요? (선택)"),
+      h(ScaleRow,{options:MEAL_HEALTH,value:feel,onChange:setFeel})
     )
   );
 }
@@ -539,7 +539,7 @@ function TodayFlow({ entry, onEditMorning, onEditEvening, onEditEvent, onDeleteE
   return h("div",null,items.map((item,i)=>{
     let icon="",text="",sub="",color=BDR;
     if(item.type==="wake"){
-      icon="🌤️"; color=CATS[0].color;
+      icon="☀️"; color=CATS[0].color;
       text=`기상 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
       sub=item.data.note||"";
     } else if(item.type==="bed"){

@@ -688,7 +688,7 @@ function computeDayScore(entry, prevEntry, goals) {
   const mealFeels = entry.events.filter(e => e.type === "meal" && e.feel);
   if (mealFeels.length) {
     const feelMap = {
-      "아주 잘 맞음": 100, "잘 맞음": 80, "보통": 60, "안 맞음": 40, "아주 안 맞음": 20
+      "🥗 건강식": 100, "🙂 건강": 80, "😐 보통": 60, "🍟 정크": 40, "🍔 완전정크": 20
     };
     foodSub.push(mealFeels.reduce((a, e) => a + (feelMap[e.feel] ?? 60), 0) / mealFeels.length);
   }
@@ -850,7 +850,7 @@ function ScoreInfo({
   const morningPt = entry.morning ? Math.round(entry.morning.level / 5 * 100) : null;
   const eveningPt = entry.evening ? Math.round(entry.evening.level / 5 * 100) : null;
   const fastPt = score.fastHours != null ? (score.fastHours >= fastGoalH ? 100 : Math.round(Math.min(100, score.fastHours / fastGoalH * 100))) : null;
-  const foodPt = score.meals.length ? Math.round((() => { const sub = []; if (score.meals.length >= 2) { const gaps = []; for (let i = 1; i < score.meals.length; i++) gaps.push(toMin(score.meals[i]) - toMin(score.meals[i-1])); sub.push(Math.max(0, 100 - gaps.filter(g=>g<90).length*25)); } const feels = entry.events.filter(e=>e.type==="meal"&&e.feel); if (feels.length) { const fm = {"아주 잘 맞음":100,"잘 맞음":80,"보통":60,"안 맞음":40,"아주 안 맞음":20}; sub.push(feels.reduce((a,e)=>a+(fm[e.feel]??60),0)/feels.length); } return sub.length ? sub.reduce((a,b)=>a+b,0)/sub.length : 0; })()) : null;
+  const foodPt = score.meals.length ? Math.round((() => { const sub = []; if (score.meals.length >= 2) { const gaps = []; for (let i = 1; i < score.meals.length; i++) gaps.push(toMin(score.meals[i]) - toMin(score.meals[i-1])); sub.push(Math.max(0, 100 - gaps.filter(g=>g<90).length*25)); } const feels = entry.events.filter(e=>e.type==="meal"&&e.feel); if (feels.length) { const fm = {"🥗 건강식":100,"🙂 건강":80,"😐 보통":60,"🍟 정크":40,"🍔 완전정크":20}; sub.push(feels.reduce((a,e)=>a+(fm[e.feel]??60),0)/feels.length); } return sub.length ? sub.reduce((a,b)=>a+b,0)/sub.length : 0; })()) : null;
   const hydPt = score.hydrationMl > 0 ? (score.hydrationMl >= hydGoalMl ? 100 : Math.round(Math.min(100, score.hydrationMl / hydGoalMl * 100))) : null;
   const exPt = score.exMinutes > 0 ? (score.exMinutes >= exGoal ? 100 : Math.round(Math.min(100, score.exMinutes / exGoal * 100))) : null;
   const medPt = score.medMinutes > 0 ? (score.medMinutes >= medGoal ? 100 : Math.round(Math.min(100, score.medMinutes / medGoal * 100))) : null;
@@ -1544,12 +1544,12 @@ function QuickLogForm({
       fontWeight: 700,
       marginBottom: 6
     }
-  }, "몸에 어땠나요? (나중에 다시 체크해도 좋아요)"), /*#__PURE__*/React.createElement("div", {
+  }, "건강하게 먹었나요?"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6
     }
-  }, ["아주 잘 맞음", "잘 맞음", "보통", "안 맞음", "아주 안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["🥗 건강식", "🙂 건강", "😐 보통", "🍟 정크", "🍔 완전정크"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setMealFeel(f),
     style: {
@@ -1967,7 +1967,7 @@ function EventEditForm({
       display: "flex",
       gap: 6
     }
-  }, ["아주 잘 맞음", "잘 맞음", "보통", "안 맞음", "아주 안 맞음"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["🥗 건강식", "🙂 건강", "😐 보통", "🍟 정크", "🍔 완전정크"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setFeel(f),
     style: {
@@ -2636,7 +2636,7 @@ function TodayView({
     key: date + "-morning",
     title: "아침",
     sub: "일어났을 때",
-    tint: "🌤️",
+    tint: "☀️",
     data: entry.morning,
     onSave: saveMorning,
     onDelete: deleteMorning,
@@ -2674,7 +2674,7 @@ function TodayView({
       style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#5B5580", padding: "3px 0" }
     }, /*#__PURE__*/React.createElement("span", {
       style: { width: 42, color: "#8a80a0", fontVariantNumeric: "tabular-nums", fontWeight: 700 }
-    }, entry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "🌤️ 기상", entry.morning.period ? " · 🩸 생리중" : "", entry.morning.note ? ` · ${entry.morning.note}` : ""));
+    }, entry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "☀️ 기상", entry.morning.period ? " · 🩸 생리중" : "", entry.morning.note ? ` · ${entry.morning.note}` : ""));
     if (e.type === "bed") return /*#__PURE__*/React.createElement("div", {
       key: "bed",
       style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#5B5580", padding: "3px 0" }
@@ -3463,7 +3463,7 @@ function ArchiveView() {
       color: "#5B5580",
       marginBottom: 6
     }
-  }, "🌤️ 아침 컨디션 ", openEntry.morning.level, "/5", openEntry.morning.wakeTime ? ` · 기상 ${openEntry.morning.wakeTime}` : "", openEntry.morning.period ? " · 🩸 생리중" : "", openEntry.morning.note ? ` · ${openEntry.morning.note}` : ""), /*#__PURE__*/React.createElement("div", {
+  }, "☀️ 아침 컨디션 ", openEntry.morning.level, "/5", openEntry.morning.wakeTime ? ` · 기상 ${openEntry.morning.wakeTime}` : "", openEntry.morning.period ? " · 🩸 생리중" : "", openEntry.morning.note ? ` · ${openEntry.morning.note}` : ""), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       flexDirection: "column",
@@ -3483,7 +3483,7 @@ function ArchiveView() {
       color: "#8a80a0",
       fontWeight: 700
     }
-  }, openEntry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "🌤️ 기상", openEntry.morning.note ? ` · ${openEntry.morning.note}` : "")), openEntry.events.map(ev => {
+  }, openEntry.morning.wakeTime), /*#__PURE__*/React.createElement("span", null, "☀️ 기상", openEntry.morning.note ? ` · ${openEntry.morning.note}` : "")), openEntry.events.map(ev => {
     const def = EVENT_TYPES[ev.type];
     const extra = ev.type === "emotion" ? ` · ${ev.name}${ev.memo ? " (" + ev.memo + ")" : ""}` : ev.type === "meal" ? (ev.label ? " · " + ev.label : "") + (ev.feel ? " · " + ev.feel : "") : ev.type === "hydration" ? (ev.label ? " · " + ev.label : "") + (ev.amountMl ? " · " + ev.amountMl + "ml" : "") : ev.duration ? " · " + fmtHM(ev.duration) + (ev.memo ? " (" + ev.memo + ")" : "") : ev.feel ? " · " + ev.feel : "";
     return /*#__PURE__*/React.createElement("div", {
