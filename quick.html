@@ -859,14 +859,17 @@ function CategoryGrid({ entry, onSelect }) {
       return h("button",{
         key:cat.id, onClick:()=>onSelect(cat.id),
         style:{
-          ...cardSt,
-          border:`1.5px solid ${done?cat.color:BDR}`,
-          borderRadius:16, padding:"18px 0", cursor:"pointer",
-          display:"flex", flexDirection:"column", alignItems:"center", gap:6,
+          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+          padding:"18px 8px", gap:6,
+          borderRadius:3,
+          border:`2px solid ${done?cat.color:INK}`,
+          cursor:"pointer",
+          boxShadow:"2px 2px 0 rgba(0,0,0,0.12)",
+          background:done?`${cat.color}18`:"rgba(255,255,255,0.82)",
           position:"relative",
         }
       },
-        done && h("div",{style:{position:"absolute",top:8,right:10,fontSize:11,color:cat.color,fontWeight:800}},"✓"),
+        done && h("div",{style:{position:"absolute",top:7,right:9,fontSize:11,color:cat.color,fontWeight:800}},"✓"),
         h("span",{style:{fontSize:26}},cat.icon),
         h("span",{style:{fontSize:12,fontWeight:700,color:INK,lineHeight:1.4,textAlign:"center",padding:"0 4px"}},cat.label)
       );
@@ -978,43 +981,42 @@ function QuickApp() {
   const prevDay=()=>{ const d=new Date(recordDate+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()-1); changeRecordDate(d.toISOString().slice(0,10)); };
   const nextDay=()=>{ if(recordDate>=today)return; const d=new Date(recordDate+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+1); changeRecordDate(d.toISOString().slice(0,10)); };
   const dateLabel = fmtDateLabel(dispDate)+(dispDate===today?" TODAY":"");
-  const TABS=[
-    {key:"기록",icon:"📝"},
-    {key:"오늘",icon:"📋"},
-    {key:"보관함",icon:"📅"},
-  ];
+  const TABS=["기록","오늘","보관함"];
 
   return h("div",{style:{maxWidth:440,margin:"0 auto",paddingBottom:90}},
 
     saveAnim && h(SaveAnim,{onDone:()=>setSaveAnim(false)}),
 
     // 헤더
-    h("div",{style:{
-      padding:"16px 16px 12px",
+    h("header",{style:{
+      padding:"14px 16px 12px",
       borderBottom:`1px solid ${BDR}`,
-      display:"flex", alignItems:"center", justifyContent:"space-between",
+      textAlign:"center",
     }},
-      h("div",null,
-        h("div",{style:{...PF,fontSize:10,color:PU,letterSpacing:1,marginBottom:4}},"BALANCE"),
-        h("div",{style:{display:"flex",alignItems:"center",gap:4}},
-          showDateNav && h("button",{onClick:prevDay,style:{
-            background:"none",border:"none",color:PU,fontSize:18,fontWeight:900,
-            cursor:"pointer",padding:"0 4px 0 0",lineHeight:1,
-          }},"◀"),
-          h("span",{style:{fontSize:16,fontWeight:800,color:INK}},
-            showDateNav ? dateLabel : fmtDateLabel(today)+" TODAY"
-          ),
-          showDateNav && recordDate!==today && h("button",{onClick:nextDay,style:{
-            background:"none",border:"none",color:PU,fontSize:18,fontWeight:900,
-            cursor:"pointer",padding:"0 0 0 4px",lineHeight:1,
-          }},"▶")
-        )
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}},
+        h("div",{style:{width:60}}),
+        h("div",null),
+        h("a",{href:"index.html",style:{
+          fontSize:10,color:TXT2,textDecoration:"none",fontWeight:700,width:60,textAlign:"right",display:"block"
+        }},"전체 앱 →")
       ),
-      h("a",{href:"index.html",style:{
-        fontSize:11,color:TXT2,textDecoration:"none",
-        padding:"6px 10px",background:"rgba(255,255,255,0.6)",
-        border:`1px solid ${BDR}`,borderRadius:8
-      }},"전체 앱 →")
+      h("div",{style:{...PF,fontSize:18,color:INK,margin:"2px 0 10px",letterSpacing:"0.02em"}},"BALANCE"),
+      showDateNav
+        ? h("div",{style:{display:"flex",alignItems:"center",gap:10,justifyContent:"center"}},
+            h("button",{onClick:prevDay,style:{
+              width:30,height:30,borderRadius:3,border:`2px solid ${INK}`,background:"#ffffffee",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              cursor:"pointer",flexShrink:0,fontSize:13,color:INK,fontWeight:900,
+            }},"◀"),
+            h("div",{style:{fontSize:14,fontWeight:800,color:INK}},dateLabel),
+            h("button",{onClick:nextDay,disabled:recordDate>=today,style:{
+              width:30,height:30,borderRadius:3,border:`2px solid ${INK}`,background:"#ffffffee",
+              display:"flex",alignItems:"center",justifyContent:"center",
+              cursor:recordDate>=today?"default":"pointer",flexShrink:0,fontSize:13,color:INK,fontWeight:900,
+              opacity:recordDate>=today?0.3:1,
+            }},"▶")
+          )
+        : h("div",{style:{fontSize:13,fontWeight:800,color:INK}},fmtDateLabel(today)+" TODAY")
     ),
 
     // 본문
@@ -1035,27 +1037,28 @@ function QuickApp() {
     ),
 
     // 하단 탭
-    h("div",{style:{
+    h("nav",{style:{
       position:"fixed",bottom:0,left:0,right:0,
-      background:"rgba(255,255,255,0.82)",
-      backdropFilter:"blur(16px)",
-      WebkitBackdropFilter:"blur(16px)",
-      borderTop:`1px solid ${BDR}`,
-      display:"flex",justifyContent:"space-around",padding:"10px 0 20px",
-      maxWidth:440,margin:"0 auto",
+      background:"#ffffffee",
+      backdropFilter:"blur(10px)",
+      WebkitBackdropFilter:"blur(10px)",
+      borderTop:`3px solid ${INK}`,
+      display:"flex",justifyContent:"center",
     }},
-      TABS.map(t=>h("button",{
-        key:t.key, onClick:()=>{setActiveForm(null);setEditEv(null);setTab(t.key);},
-        style:{
-          background:"none",border:"none",cursor:"pointer",
-          color:tab===t.key&&!activeForm?PU:"rgba(155,111,199,0.45)",
-          fontWeight:700,fontSize:12,fontFamily:"inherit",
-          display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 20px",
-        }
-      },
-        h("span",{style:{fontSize:20}},t.icon),
-        h("span",{style:{...PF,fontSize:6}},t.key)
-      ))
+      h("div",{style:{maxWidth:440,width:"100%",display:"flex",padding:"8px 12px"}},
+        TABS.map(t=>h("button",{
+          key:t, onClick:()=>{setActiveForm(null);setEditEv(null);setTab(t);},
+          style:{
+            flex:1,padding:"10px 0",
+            background:tab===t&&!activeForm?INK:"transparent",
+            border:`2px solid ${tab===t&&!activeForm?INK:"transparent"}`,
+            cursor:"pointer",fontSize:12,
+            color:tab===t&&!activeForm?"#fff":"#8a80a0",
+            fontWeight:800,fontFamily:"inherit",borderRadius:3,
+            margin:"0 4px",
+          }
+        }, t))
+      )
     )
   );
 }
