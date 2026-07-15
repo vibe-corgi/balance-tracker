@@ -111,13 +111,13 @@ const CATS = [
   { id:"morning",    icon:"☀️",    label:"아침 컨디션", color:"#E8A020", bg:"#FFF5E0" },
   { id:"evening",    icon:"🌙",    label:"저녁 컨디션", color:"#5B6FD4", bg:"#EDEAFF" },
   { id:"meal",       icon:"🍽️",    label:"식사",        color:"#FF7A59", bg:"#FFE7DD" },
-  { id:"hydration",  icon:CatCup,  label:"수분",        color:"#5FB5D9", bg:"#DDF2FA" },
+  { id:"hydration",  icon:CatCup,  ticon:"💧", label:"수분",        color:"#5FB5D9", bg:"#DDF2FA" },
   { id:"exercise",   icon:"🏃‍♀️",   label:"운동",        color:"#38B27E", bg:"#DFF6EA" },
   { id:"meditation", icon:"🧘",    label:"명상",        color:"#3BAEC9", bg:"#DEF5FA" },
   { id:"bathroom",   icon:"💧",    label:"화장실",      color:"#D98A2B", bg:"#FCEBD4" },
   { id:"activity",   icon:"📖",    label:"활동",        color:"#7C6BC7", bg:"#E9E4FA" },
   { id:"emotion",    icon:"😊",    label:"감정",        color:"#9B6FC7", bg:"#EFE3FA" },
-  { id:"rest",       icon:CatRest, label:"휴식",        color:"#6D7BD9", bg:"#E6E9FF" },
+  { id:"rest",       icon:CatRest, ticon:"🌿", label:"휴식",        color:"#6D7BD9", bg:"#E6E9FF" },
 ];
 const EMOTIONS = [
   {name:"화남",emoji:"😠"},{name:"까칠",emoji:"😒"},{name:"불안",emoji:"😟"},
@@ -769,7 +769,7 @@ function TodayFlow({ entry, prevEntry, goals, onEditMorning, onEditEvening, onEd
         text=`취침 · 컨디션 ${LV_EMOJI[item.data.level]} ${item.data.level}`;
         sub=item.data.note||"";
       } else {
-        const cat=catMap[item.type]; icon=cat?.icon||"·"; color=cat?.color||BDR;
+        const cat=catMap[item.type]; icon=(typeof cat?.icon==="function"?cat?.ticon:cat?.icon)||"·"; color=cat?.color||BDR;
         if(item.type==="exercise")   text=`운동${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.memo?` · ${item.data.memo}`:""}`;
         else if(item.type==="meal")  text=`식사${item.data.hunger?` · ${item.data.hunger}`:""}${item.data.feel?` · ${item.data.feel}`:""}${item.data.label?` · ${item.data.label}`:""}`;
         else if(item.type==="meditation") text=`명상${item.data.duration?` · ${fmtDur(item.data.duration)}`:""}${item.data.lotus?" · 결가부좌":""}`;
