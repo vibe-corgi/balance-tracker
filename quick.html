@@ -86,18 +86,38 @@ const INP   = "rgba(255,255,255,0.8)";
 const PF    = { fontFamily:"'Press Start 2P'" };
 const CELE  = ["#FF77A8","#FFCC54","#008751","#29ADFF","#AB47BC","#FF4136"];
 
+// ── 카테고리 아이콘 (SVG) ─────────────────────────────────
+const CatCup = () => h("svg",{
+  width:28, height:28, viewBox:"0 0 24 24", fill:"none",
+  style:{display:"inline-block",verticalAlign:"middle"}
+},
+  h("path",{d:"M7 6h10l-1.5 15H8.5L7 6z", fill:"#38BDF8", stroke:"#1a1a1a", strokeWidth:"1", strokeLinejoin:"round"}),
+  h("line",{x1:"13", y1:"16", x2:"16.5", y2:"2.5", stroke:"#0369A1", strokeWidth:"1.8", strokeLinecap:"round"}),
+  h("path",{d:"M8 10 Q12 9 16 10", stroke:"#BAE6FD", strokeWidth:"1", strokeLinecap:"round"})
+);
+const CatRest = () => h("svg",{
+  width:28, height:28, viewBox:"0 0 24 24", fill:"none",
+  style:{display:"inline-block",verticalAlign:"middle"}
+},
+  h("path",{d:"M7 10h10l-1.5 9H8.5L7 10z", fill:"#A5D66A", stroke:"#1a1a1a", strokeWidth:"1", strokeLinejoin:"round"}),
+  h("path",{d:"M17 13h1.5a1.5 1.5 0 0 1 0 3H17", stroke:"#1a1a1a", strokeWidth:"1", strokeLinecap:"round"}),
+  h("line",{x1:"6", y1:"20", x2:"18", y2:"20", stroke:"#1a1a1a", strokeWidth:"1", strokeLinecap:"round"}),
+  h("path",{d:"M10 8 Q9.5 6 10.5 4.5 Q11.5 3 11 1.5", stroke:"#689F38", strokeWidth:"1.3", strokeLinecap:"round"}),
+  h("path",{d:"M14 8 Q13.5 6 14.5 4.5 Q15.5 3 15 1.5", stroke:"#689F38", strokeWidth:"1.3", strokeLinecap:"round"})
+);
+
 // ── 카테고리 & 상수 ────────────────────────────────────────
 const CATS = [
-  { id:"morning",    icon:"☀️", label:"아침 컨디션", color:"#E8A020" },
-  { id:"evening",    icon:"🌙", label:"저녁 컨디션", color:"#5B6FD4" },
-  { id:"exercise",   icon:"💪", label:"운동",        color:"#E05050" },
-  { id:"meal",       icon:"🍽️", label:"식사",        color:"#3D9E45" },
-  { id:"meditation", icon:"🧘", label:"명상",        color:"#9B6FC7" },
-  { id:"hydration",  icon:"💧", label:"수분",        color:"#1A90C8" },
-  { id:"bathroom",   icon:"🚽", label:"화장실",      color:"#8D6E63" },
-  { id:"emotion",    icon:"💭", label:"감정",        color:"#D94040" },
-  { id:"activity",   icon:"📖", label:"활동",        color:"#6B5BC7" },
-  { id:"rest",       icon:"💤", label:"휴식",        color:"#5D6EC4" },
+  { id:"morning",    icon:"☀️",    label:"아침 컨디션", color:"#E8A020", bg:"#FFF5E0" },
+  { id:"evening",    icon:"🌙",    label:"저녁 컨디션", color:"#5B6FD4", bg:"#EDEAFF" },
+  { id:"meal",       icon:"🍽️",    label:"식사",        color:"#FF7A59", bg:"#FFE7DD" },
+  { id:"hydration",  icon:CatCup,  label:"수분",        color:"#5FB5D9", bg:"#DDF2FA" },
+  { id:"exercise",   icon:"🏃‍♀️",   label:"운동",        color:"#38B27E", bg:"#DFF6EA" },
+  { id:"meditation", icon:"🧘",    label:"명상",        color:"#3BAEC9", bg:"#DEF5FA" },
+  { id:"bathroom",   icon:"💧",    label:"화장실",      color:"#D98A2B", bg:"#FCEBD4" },
+  { id:"activity",   icon:"📖",    label:"활동",        color:"#7C6BC7", bg:"#E9E4FA" },
+  { id:"emotion",    icon:"😊",    label:"감정",        color:"#9B6FC7", bg:"#EFE3FA" },
+  { id:"rest",       icon:CatRest, label:"휴식",        color:"#6D7BD9", bg:"#E6E9FF" },
 ];
 const EMOTIONS = [
   {name:"화남",emoji:"😠"},{name:"까칠",emoji:"😒"},{name:"불안",emoji:"😟"},
@@ -865,12 +885,12 @@ function CategoryGrid({ entry, onSelect }) {
           border:`2px solid ${done?cat.color:INK}`,
           cursor:"pointer",
           boxShadow:"2px 2px 0 rgba(0,0,0,0.12)",
-          background:done?`${cat.color}18`:"rgba(255,255,255,0.82)",
+          background:cat.bg,
           position:"relative",
         }
       },
         done && h("div",{style:{position:"absolute",top:7,right:9,fontSize:11,color:cat.color,fontWeight:800}},"✓"),
-        h("span",{style:{fontSize:26}},cat.icon),
+        typeof cat.icon==="function" ? h(cat.icon) : h("span",{style:{fontSize:26}},cat.icon),
         h("span",{style:{fontSize:12,fontWeight:700,color:INK,lineHeight:1.4,textAlign:"center",padding:"0 4px"}},cat.label)
       );
     })
