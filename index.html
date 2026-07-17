@@ -1510,7 +1510,7 @@ function QuickLogForm({
   const [cups, setCups] = useState(1);
   const def = EVENT_TYPES[type];
   const isTimed = type === "exercise" || type === "meditation" || type === "activity" || type === "rest";
-  const computedDuration = isTimed ? Math.max(0, toMin(endTime) - toMin(startTime)) : null;
+  const computedDuration = isTimed ? (() => { let d = toMin(endTime) - toMin(startTime); if (d < 0) d += 1440; return d; })() : null;
   const submit = () => {
     if (isTimed) onSubmit({
       time: startTime,
