@@ -80,6 +80,7 @@ jobs:
           FB_TOKEN: ${{ steps.auth.outputs.token }}
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: bash .github/scripts/daily-report.sh
 
       - name: Send weekly report
@@ -88,6 +89,7 @@ jobs:
           FB_TOKEN: ${{ steps.auth.outputs.token }}
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: bash .github/scripts/weekly-report.sh
 
       - name: Send monthly report
@@ -96,6 +98,7 @@ jobs:
           FB_TOKEN: ${{ steps.auth.outputs.token }}
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: bash .github/scripts/monthly-report.sh
 
       - name: Cleanup

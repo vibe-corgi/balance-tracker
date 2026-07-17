@@ -11,6 +11,20 @@ send_telegram() {
     -H "Content-Type: application/json; charset=utf-8" -d "$payload" > /dev/null
 }
 
+call_claude() {
+  local prompt="$1"
+  local max_tokens="${2:-500}"
+  curl -s -X POST "https://api.anthropic.com/v1/messages" \
+    -H "x-api-key: $ANTHROPIC_API_KEY" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -n --arg p "$prompt" --argjson mt "$max_tokens" '{
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: $mt,
+      messages: [{role: "user", content: $p}]
+    }')" 2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null || true
+}
+
 # Previous month
 PREV_YEAR=$(TZ=Asia/Seoul date -d "last month" +%Y)
 PREV_MONTH=$(TZ=Asia/Seoul date -d "last month" +%m)
@@ -146,6 +160,12 @@ TOTAL_MEALS=0; TOTAL_HYD=0
 M_SUM=0; M_C=0; E_SUM=0; E_C=0
 EX_SC_SUM=0; EX_SC_C=0; NO_EX_SC_SUM=0; NO_EX_SC_C=0
 
+# 텍스트 분석용 — 감정, 식사, 메모 누적
+MONTH_EMOTIONS=""
+MONTH_MEAL_LABELS=""
+MONTH_NOTES=""
+ENTRY_COUNT=0
+
 # Read all entries for the month
 ALL_ENTRIES=$(curl -s "$BASE?pageSize=50" -H "Authorization: Bearer $FB_TOKEN" | jq -r '.documents[]? | select(.name | contains("entry:'$SUMMARY_KEY'")) | .fields.value.stringValue' 2>/dev/null)
 
@@ -153,6 +173,8 @@ while IFS= read -r ENTRY; do
   [ -z "$ENTRY" ] && continue
   DT=$(echo "$ENTRY" | jq -r '.date // empty')
   [ -z "$DT" ] && continue
+
+  ENTRY_COUNT=$((ENTRY_COUNT + 1))
 
   MLV=$(echo "$ENTRY" | jq -r '.morning.level // empty')
   [ -n "$MLV" ] && { M_SUM=$((M_SUM+MLV)); M_C=$((M_C+1)); }
@@ -182,6 +204,18 @@ while IFS= read -r ENTRY; do
       NO_EX_SC_SUM=$((NO_EX_SC_SUM+SC)); NO_EX_SC_C=$((NO_EX_SC_C+1))
     fi
   fi
+
+  # 텍스트 수집
+  EMOTIONS=$(echo "$ENTRY" | jq -r '[.events[]? | select(.type=="emotion") | .name // ""] | join(", ")')
+  MLABELS=$(echo "$ENTRY" | jq -r '[.events[]? | select(.type=="meal" and .label != null and .label != "") | .label] | join(", ")')
+  MNOTE=$(echo "$ENTRY" | jq -r '.morning.note // empty')
+  ENOTE=$(echo "$ENTRY" | jq -r '.evening.note // empty')
+
+  DD_NUM=$(echo "$DT" | sed 's/.*-//' | sed 's/^0//')
+  [ -n "$EMOTIONS" ] && MONTH_EMOTIONS="${MONTH_EMOTIONS}${DD_NUM}일:${EMOTIONS} "
+  [ -n "$MLABELS" ] && MONTH_MEAL_LABELS="${MONTH_MEAL_LABELS}${DD_NUM}일:${MLABELS} "
+  [ -n "$MNOTE" ] && MONTH_NOTES="${MONTH_NOTES}${DD_NUM}일(아침):${MNOTE} "
+  [ -n "$ENOTE" ] && MONTH_NOTES="${MONTH_NOTES}${DD_NUM}일(저녁):${ENOTE} "
 done <<< "$ALL_ENTRIES"
 
 MSG="${MSG}
@@ -206,7 +240,7 @@ MSG="${MSG}
 
 🩸 생리: 총 ${PERIOD_DAYS}일"
 
-# Patterns
+# 패턴
 MSG="${MSG}
 
 🔍 패턴 발견"
@@ -222,7 +256,7 @@ if [ $RECORD_DAYS -lt $((10#$LAST_DAY / 2)) ]; then
 • 기록률이 ${PCT}%로 낮아요. 꾸준한 기록이 패턴 발견의 핵심!"
 fi
 
-# Suggestions
+# 다음 달 포인트
 MSG="${MSG}
 
 💡 다음 달 포인트"
@@ -236,6 +270,45 @@ elif [ $RECORD_DAYS -gt 0 ]; then
 fi
 [ $EX_DAYS -lt 10 ] && MSG="${MSG}
 2. 운동 빈도 늘리기 (현재 월 ${EX_DAYS}일)"
+
+# Claude 월간 총평 (텍스트 기록이 있을 때만)
+if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ $ENTRY_COUNT -gt 0 ]; then
+  SLEEP_AVG_TEXT=""
+  [ $SLEEP_C -gt 0 ] && SLEEP_AVG_TEXT=$(awk "BEGIN{printf \"%.1f\", $TOTAL_SLEEP/$SLEEP_C/60}")
+
+  CLAUDE_PROMPT="당신은 건강 기록 분석가예요. 아래는 ${PREV_MONTH_NUM}월 한 달간의 기록이에요.
+
+[수치 요약]
+월 평균 점수: ${AVG}점 (${RECORD_DAYS}/${LAST_DAY}일 기록)
+아침 컨디션 평균: $([ $M_C -gt 0 ] && awk "BEGIN{printf \"%.1f\", $M_SUM/$M_C}" || echo "없음")/5
+평균 수면: ${SLEEP_AVG_TEXT:-없음}시간
+운동: ${EX_DAYS}일 | 명상: ${MED_DAYS}일 | 생리: ${PERIOD_DAYS}일
+
+[감정 기록]
+${MONTH_EMOTIONS:-없음}
+
+[식사 기록]
+${MONTH_MEAL_LABELS:-없음}
+
+[아침·저녁 메모]
+${MONTH_NOTES:-없음}
+
+위 한 달 기록을 보고:
+1. 이번 달에 반복된 패턴 (긍정적/부정적 모두)
+2. 텍스트에서 보이는 신체·감정 신호
+3. 다음 달에 집중할 한 가지
+
+를 한국어로 4-5문장으로 써줘. 수치보다 텍스트와 패턴에 집중하고, 구체적으로."
+
+  AI_INSIGHT=$(call_claude "$CLAUDE_PROMPT" 500)
+
+  if [ -n "$AI_INSIGHT" ]; then
+    MSG="${MSG}
+
+🤖 이번 달 기록에서
+${AI_INSIGHT}"
+  fi
+fi
 
 send_telegram "$MSG"
 echo "Monthly report sent for ${PREV_YEAR}-${PREV_MONTH}"

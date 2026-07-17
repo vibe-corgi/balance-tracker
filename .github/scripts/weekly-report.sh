@@ -21,6 +21,20 @@ send_telegram() {
     -H "Content-Type: application/json; charset=utf-8" -d "$payload" > /dev/null
 }
 
+call_claude() {
+  local prompt="$1"
+  local max_tokens="${2:-400}"
+  curl -s -X POST "https://api.anthropic.com/v1/messages" \
+    -H "x-api-key: $ANTHROPIC_API_KEY" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -n --arg p "$prompt" --argjson mt "$max_tokens" '{
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: $mt,
+      messages: [{role: "user", content: $p}]
+    }')" 2>/dev/null | jq -r '.content[0].text // empty' 2>/dev/null || true
+}
+
 dow_kr() {
   case $(TZ=Asia/Seoul date -d "$1" +%u) in
     1) echo "월";; 2) echo "화";; 3) echo "수";; 4) echo "목";;
@@ -29,7 +43,6 @@ dow_kr() {
 }
 
 # Previous week: Mon to Sun
-# Today is Monday (KST). Previous Monday = 7 days ago, Previous Sunday = yesterday
 PREV_MON=$(TZ=Asia/Seoul date -d "7 days ago" +%Y-%m-%d)
 PREV_SUN=$(TZ=Asia/Seoul date -d "yesterday" +%Y-%m-%d)
 
@@ -62,6 +75,9 @@ EX_SCORE_SUM=0
 EX_SCORE_COUNT=0
 NO_EX_SCORE_SUM=0
 NO_EX_SCORE_COUNT=0
+
+# 텍스트 분석용 누적
+WEEK_TEXTS=""
 
 for i in $(seq 0 6); do
   D=$(TZ=Asia/Seoul date -d "$PREV_MON + $i days" +%Y-%m-%d)
@@ -105,7 +121,6 @@ for i in $(seq 0 6); do
     HAS_EX=true
   fi
 
-  # Track exercise vs score correlation
   if [ -n "$SC" ]; then
     if [ "$HAS_EX" = true ]; then
       EX_SCORE_SUM=$((EX_SCORE_SUM + SC))
@@ -151,6 +166,28 @@ for i in $(seq 0 6); do
     DD=$(echo "$D" | sed 's/.*-//' | sed 's/^0//')
     PERIOD_DATES="${PERIOD_DATES}${DD}일 "
   fi
+
+  # 텍스트 수집 (AI 분석용)
+  DOW_TEXT=$(dow_kr "$D")
+  MM=$(echo "$D" | sed 's/^[0-9]*-//;s/-.*//' | sed 's/^0//')
+  DD_TEXT=$(echo "$D" | sed 's/.*-//' | sed 's/^0//')
+  DAY_LABEL="${MM}/${DD_TEXT}(${DOW_TEXT})"
+
+  MNOTE=$(echo "$ENTRY" | jq -r '.morning.note // empty')
+  ENOTE=$(echo "$ENTRY" | jq -r '.evening.note // empty')
+  MLABELS=$(echo "$ENTRY" | jq -r '[.events[] | select(.type=="meal" and .label != null and .label != "") | .label] | join(", ")')
+  EMOTIONS=$(echo "$ENTRY" | jq -r '[.events[] | select(.type=="emotion") | (.name // "") + (if (.memo != null and .memo != "") then "(" + .memo + ")" else "" end)] | join(", ")')
+  ALL_MEMOS=$(echo "$ENTRY" | jq -r '[.events[] | select(.type != "emotion" and .memo != null and .memo != "") | .memo] | join(" / ")')
+
+  DAY_TEXT="[${DAY_LABEL} ${SC:-?}점 아침${MLV:-?}/5]"
+  [ -n "$MLABELS" ] && DAY_TEXT="${DAY_TEXT} 식사:${MLABELS}"
+  [ -n "$EMOTIONS" ] && DAY_TEXT="${DAY_TEXT} 감정:${EMOTIONS}"
+  [ -n "$MNOTE" ] && DAY_TEXT="${DAY_TEXT} 아침메모:${MNOTE}"
+  [ -n "$ENOTE" ] && DAY_TEXT="${DAY_TEXT} 저녁메모:${ENOTE}"
+  [ -n "$ALL_MEMOS" ] && DAY_TEXT="${DAY_TEXT} 메모:${ALL_MEMOS}"
+
+  WEEK_TEXTS="${WEEK_TEXTS}
+${DAY_TEXT}"
 done
 
 # Calculate averages
@@ -222,7 +259,7 @@ MSG="${MSG}
 
 🩸 생리: ${PERIOD_DATES}"
 
-# Correlation insights
+# 수치 기반 운동 상관관계
 MSG="${MSG}
 
 🔗 컨디션 연결고리"
@@ -233,7 +270,7 @@ if [ $EX_SCORE_COUNT -gt 0 ] && [ $NO_EX_SCORE_COUNT -gt 0 ]; then
 • 운동한 날 평균 ${EX_AVG}점 vs 안 한 날 ${NO_EX_AVG}점"
 fi
 
-# Simple insight
+# 규칙 기반 한 줄 코멘트
 if [ $RECORD_DAYS -lt 4 ]; then
   MSG="${MSG}
 
@@ -246,6 +283,34 @@ else
   MSG="${MSG}
 
 💡 다음 주는 가장 약한 항목에 조금 더 신경 써보세요."
+fi
+
+# Claude AI 텍스트 분석 (API 키 있을 때만)
+if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$WEEK_TEXTS" ]; then
+  SLEEP_AVG_TEXT=""
+  [ $SLEEP_COUNT -gt 0 ] && SLEEP_AVG_TEXT=$(awk "BEGIN{printf \"%.1f\", $TOTAL_SLEEP/$SLEEP_COUNT/60}")
+
+  CLAUDE_PROMPT="당신은 건강 기록 분석가예요. 아래는 지난 7일간의 기록이에요.
+
+[수치 요약]
+평균 점수: ${AVG_SCORE}점 (${RECORD_DAYS}/7일 기록)
+아침 컨디션 평균: $([ $MORNING_COUNT -gt 0 ] && awk "BEGIN{printf \"%.1f\", $MORNING_SUM/$MORNING_COUNT}" || echo "없음")/5
+평균 수면: ${SLEEP_AVG_TEXT:-없음}시간
+운동: ${EX_DAYS}/7일 | 명상: ${MED_DAYS}/7일
+
+[날짜별 텍스트 기록]
+${WEEK_TEXTS}
+
+위 기록을 보고 이번 주에 눈에 띄는 패턴이나 연결점 (수치보다 텍스트 내용 중심으로), 그리고 다음 주에 한 가지 신경 쓸 것을 한국어로 3-4문장으로 써줘. 친근하고 간결하게."
+
+  AI_INSIGHT=$(call_claude "$CLAUDE_PROMPT" 400)
+
+  if [ -n "$AI_INSIGHT" ]; then
+    MSG="${MSG}
+
+🤖 이번 주 메모에서
+${AI_INSIGHT}"
+  fi
 fi
 
 send_telegram "$MSG"
