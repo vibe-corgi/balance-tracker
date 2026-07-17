@@ -2006,7 +2006,7 @@ function EventRow({
       const hydIcon = hydDef?.icon;
       const hydComp = hydDef?.comp;
       const hydLabel = hydDef?.label;
-      const extra = ev.type === "meal" ? `${ev.endTime && ev.endTime !== ev.time ? ` ~${ev.endTime}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` :ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
+      const extra = ev.type === "meal" ? `${ev.endTime && ev.endTime !== ev.time ? ` ~${ev.endTime}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}` :ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 결가부좌" : ""}${ev.nap ? " · 😴 수면" : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
       content = /*#__PURE__*/React.createElement(React.Fragment, null, ev.type === "hydration" && hydComp ? /*#__PURE__*/React.createElement(hydComp) : ev.type === "hydration" && hydIcon ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 13 } }, hydIcon) : /*#__PURE__*/React.createElement(Icon, {
         size: 13,
         color: def.color,
@@ -2063,6 +2063,7 @@ function EventEditForm({
   const [feel, setFeel] = useState(ev.feel || null);
   const [mealHunger, setMealHunger] = useState(ev.hunger || null);
   const [lotus, setLotus] = useState(ev.lotus || false);
+  const [nap, setNap] = useState(ev.nap || false);
   const isExistingCustom = ev.name && !EMOTION_NAMES.includes(ev.name);
   const [emotion, setEmotion] = useState(isExistingCustom ? "기타" : (ev.name || null));
   const [customName, setCustomName] = useState(isExistingCustom ? ev.name : "");
@@ -2075,7 +2076,8 @@ function EventEditForm({
       endTime,
       duration: computedDuration,
       memo,
-      lotus
+      lotus,
+      ...(ev.type === "rest" && { nap })
     });else if (ev.type === "meal") onSave({
       time,
       endTime,
@@ -2272,7 +2274,11 @@ function EventEditForm({
     type: "checkbox",
     checked: lotus,
     onChange: e => setLotus(e.target.checked)
-  }), " 결가부좌 자세로")), ev.type === "bathroom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), " 결가부좌 자세로")), ev.type === "rest" && /*#__PURE__*/React.createElement("label", {
+    style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 10, color: INK, fontWeight: 600 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox", checked: nap, onChange: e => setNap(e.target.checked)
+  }), " 😴 수면"), ev.type === "bathroom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 8
     }
