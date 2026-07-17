@@ -595,6 +595,11 @@ async function loadEntry(date, attempt = 0) {
     const res = await window.storage.get(`entry:${date}`);
     if (!res) return emptyEntry(date);
     const e = JSON.parse(res.value);
+    if (!Array.isArray(e.events)) e.events = [];
+    const hasMorning = e.morning && (e.morning.level != null || e.morning.wakeTime || e.morning.period || e.morning.stretch || e.morning.saltGargle || e.morning.note);
+    if (!hasMorning) e.morning = null;
+    const hasEvening = e.evening && (e.evening.level != null || e.evening.bedTime || e.evening.note);
+    if (!hasEvening) e.evening = null;
     if (!e._lv) {
       if (e.morning && e.morning.level != null) e.morning.level = Math.min(e.morning.level + 1, 5);
       if (e.evening && e.evening.level != null) e.evening.level = Math.min(e.evening.level + 1, 5);
@@ -702,8 +707,20 @@ function computeDayScore(entry, prevEntry, goals) {
   if (!hasAnyData) return null;
   const parts = [];
 
-  if (entry.morning) parts.push({ key: "morning", v: entry.morning.level / 5 * 100, w: 5 });
-  if (entry.evening) parts.push({ key: "evening", v: entry.evening.level / 5 * 100, w: 10 });
+  if (entry.morning?.level != null) parts.push({ key: "morning", v: entry.morning.level / 5 * 100, w: 5 });
+  if (entry.evening?.level != null) {
+    const condScore = entry.evening.level / 5 * 100;
+    const bedTime = entry.evening.bedTime;
+    let bedMult = 1.0;
+    if (bedTime) {
+      const bm = toMin(bedTime);
+      const adj = bm < 6 * 60 ? bm + 1440 : bm;
+      if (adj >= 25 * 60) bedMult = 0.6;       // 01:00 이후
+      else if (adj >= 24 * 60) bedMult = 0.75;  // 00:00~00:59
+      else if (adj >= 23 * 60) bedMult = 0.9;   // 23:00~23:59
+    }
+    parts.push({ key: "evening", v: condScore * bedMult, w: 12 });
+  }
 
   const meals = entry.events.filter(e => e.type === "meal").map(e => e.time).sort();
   const prevMeals = prevEntry ? prevEntry.events.filter(e => e.type === "meal").map(e => e.time).sort() : [];
@@ -794,7 +811,7 @@ function computeDayScore(entry, prevEntry, goals) {
     let sv = 100;
     if (sleepHours < sMin) sv = Math.max(0, 100 - Math.ceil((sMin - sleepHours) / 0.5) * 20);
     else if (sleepHours > sMax) sv = Math.max(0, 100 - Math.ceil((sleepHours - sMax) / 0.5) * 10);
-    parts.push({ key: "sleep", v: sv, w: 12 });
+    parts.push({ key: "sleep", v: sv, w: 10 });
   }
   const emotions = entry.events.filter(e => e.type === "emotion");
 
@@ -1870,7 +1887,7 @@ function DayThread({
       const size = compact ? 12 : 16;
       return /*#__PURE__*/React.createElement("div", {
         key: ev.id,
-        title: `${ev.time} 감정 · ${ev.name}`,
+        title: `${ev.time} 감정 · ${ev.name}${ev.memo ? ` · ${ev.memo}` : ""}`,
         style: {
           position: "absolute",
           left,
@@ -1882,6 +1899,25 @@ function DayThread({
         skin: EMOTIONS[ev.name].skin,
         cell: size / 13
       }));
+    }
+    if (ev.type === "emotion") {
+      const size = compact ? 8 : 11;
+      return /*#__PURE__*/React.createElement("div", {
+        key: ev.id,
+        title: `${ev.time} 감정 · ${ev.name}${ev.memo ? ` · ${ev.memo}` : ""}`,
+        style: {
+          position: "absolute",
+          left,
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          background: EVENT_TYPES["emotion"].color,
+          border: "2px solid #fff",
+          boxShadow: "0 2px 6px -1px #00000033"
+        }
+      });
     }
     const def = EVENT_TYPES[ev.type];
     return /*#__PURE__*/React.createElement("div", {
@@ -1921,6 +1957,12 @@ function EventRow({
         rows: EMOTIONS[ev.name].rows,
         skin: EMOTIONS[ev.name].skin,
         cell: 1.6
+      }), /*#__PURE__*/React.createElement("span", null, "감정 · ", ev.name, ev.memo ? ` · ${ev.memo}` : ""));
+    } else if (ev.type === "emotion") {
+      content = /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Icon, {
+        size: 13,
+        color: def.color,
+        strokeWidth: 2
       }), /*#__PURE__*/React.createElement("span", null, "감정 · ", ev.name, ev.memo ? ` · ${ev.memo}` : ""));
     } else {
       const hydDef = ev.type === "hydration" && ev.hydType ? (HYDRATION_TYPES.find(h => h.key === ev.hydType) || HYDRATION_TYPES[0]) : null;
@@ -3048,7 +3090,7 @@ function FlowView({
     const s = summary[date];
     const lv = s ? s.level : null;
     const loaded = loadedEntries[date];
-    const score = loaded ? computeDayScore(loaded.entry, loaded.prev, goals) : null;
+    const score = loaded?.entry ? computeDayScore(loaded.entry, loaded.prev, goals) : null;
     const fastOn = score && score.fastHours != null;
     const sleepOn = score && score.sleepHours != null;
     const waterOn = score && score.hydrationMl > 0;
@@ -3103,11 +3145,15 @@ function FlowView({
         gap: 2,
         marginLeft: "auto"
       }
-    }, score.emotions.slice(0, 5).map(e => /*#__PURE__*/React.createElement(PixelGrid, {
+    }, score.emotions.slice(0, 5).map(e => EMOTIONS[e.name] ? /*#__PURE__*/React.createElement(PixelGrid, {
       key: e.id,
       rows: EMOTIONS[e.name].rows,
       skin: EMOTIONS[e.name].skin,
       cell: 1.1
+    }) : /*#__PURE__*/React.createElement("div", {
+      key: e.id,
+      title: e.name,
+      style: { width: 11, height: 11, borderRadius: "50%", background: EVENT_TYPES.emotion.color, border: "1.5px solid #fff" }
     }))), /*#__PURE__*/React.createElement("span", {
       style: { marginLeft: 4, fontSize: 10, color: "#8a80a0" }
     }, isOpen ? (loaded ? "▲" : "…") : "▽")), isOpen && loaded && /*#__PURE__*/React.createElement("div", {
