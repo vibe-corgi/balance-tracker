@@ -357,11 +357,32 @@ function MemoArea({ value, onChange, placeholder="메모 (선택)" }) {
 }
 
 function TimeInput({ value, onChange, label }) {
+  const parts = (value||"00:00").split(":");
+  const hh = Number(parts[0])||0;
+  const mm = Number(parts[1])||0;
+  const isPM = hh >= 12;
+  const setAmPm = (pm) => {
+    if (pm === isPM) return;
+    const newH = pm ? hh + 12 : hh - 12;
+    onChange(`${String(newH).padStart(2,"0")}:${String(mm).padStart(2,"0")}`);
+  };
+  const apBtn = (active) => ({
+    padding:"9px 13px", borderRadius:8, fontWeight:700, fontSize:14,
+    background: active ? PU : "rgba(255,255,255,0.5)",
+    color: active ? "#fff" : INK,
+    border: `1.5px solid ${active ? PU : BDR}`,
+    cursor:"pointer", lineHeight:1, display:"block"
+  });
   return h("div",null,
-    label && h("label",{ style:labelSt },label),
-    h("div",{ style:{ overflow:"visible" } },
-      h("input",{ type:"time", value, onChange:e=>onChange(e.target.value),
-        style:{ ...inputSt, width:"100%", paddingRight:8 }
+    label && h("label",{style:labelSt},label),
+    h("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+      h("div",{style:{display:"flex",flexDirection:"column",gap:5}},
+        h("button",{onClick:()=>setAmPm(false),style:apBtn(!isPM)},"오전"),
+        h("button",{onClick:()=>setAmPm(true), style:apBtn(isPM)}, "오후")
+      ),
+      h("input",{type:"time",value,onChange:e=>onChange(e.target.value),
+        style:{...inputSt,flex:1,height:54,fontSize:20,textAlign:"center",
+          colorScheme:"light",padding:"0 8px"}
       })
     )
   );
