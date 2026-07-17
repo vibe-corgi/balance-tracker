@@ -122,6 +122,7 @@
         // Write to Firestore; queue for retry if offline
         try {
           await _db.collection("users").doc(uid).collection("data").doc(key).set({ value });
+          console.log("✅ Firestore 저장 성공:", key);
         } catch(e) {
           console.error("🔴 Firestore 저장 실패:", key, e.code, e.message);
           const raw = localStorage.getItem(this._pendingKey(uid));
