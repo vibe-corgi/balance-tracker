@@ -712,17 +712,7 @@ function computeDayScore(entry, prevEntry, goals) {
 
   if (entry.morning?.level != null) parts.push({ key: "morning", v: entry.morning.level / 5 * 100, w: 5 });
   if (entry.evening?.level != null) {
-    const condScore = entry.evening.level / 5 * 100;
-    const bedTime = entry.evening.bedTime;
-    let bedMult = 1.0;
-    if (bedTime) {
-      const bm = toMin(bedTime);
-      const adj = bm < 6 * 60 ? bm + 1440 : bm;
-      if (adj >= 25 * 60) bedMult = 0.6;       // 01:00 이후
-      else if (adj >= 24 * 60) bedMult = 0.75;  // 00:00~00:59
-      else if (adj >= 23 * 60) bedMult = 0.9;   // 23:00~23:59
-    }
-    parts.push({ key: "evening", v: condScore * bedMult, w: 12 });
+    parts.push({ key: "evening", v: entry.evening.level / 5 * 100, w: 5 });
   }
 
   const meals = entry.events.filter(e => e.type === "meal").map(e => e.time).sort();
@@ -738,27 +728,20 @@ function computeDayScore(entry, prevEntry, goals) {
     parts.push({ key: "fasting", v: fastHours >= goalH ? 100 : Math.min(100, fastHours / goalH * 100), w: 15 });
   }
 
-  const foodSub = [];
-  if (meals.length >= 2) {
-    const gaps = [];
-    for (let i = 1; i < meals.length; i++) gaps.push(toMin(meals[i]) - toMin(meals[i - 1]));
-    const shortGaps = gaps.filter(g => g < 90).length;
-    foodSub.push(Math.max(0, 100 - shortGaps * 25));
-  }
   const mealFeels = entry.events.filter(e => e.type === "meal" && (e.feel || e.hunger));
   if (mealFeels.length) {
-    const feelMap = { "🥗 건강식": 100, "🙂 건강": 80, "😐 보통": 60, "🍟 정크": 40, "🍔 완전정크": 20 };
+    const feelMap = { "클린": 100, "보통": 65, "정크": 35, "폭식": 10 };
     const hungerMap = { "🌟 배고팠음": 100, "😐 그냥먹음": 50, "😞 안배고픔": 0 };
-    foodSub.push(mealFeels.reduce((a, e) => {
-      const q = e.feel ? (feelMap[e.feel] ?? 60) : null;
+    const foodScore = mealFeels.reduce((a, e) => {
+      const q = e.feel ? (feelMap[e.feel] ?? 65) : null;
       const hv = e.hunger ? (hungerMap[e.hunger] ?? null) : null;
       if (q != null && hv != null) return a + q * 0.6 + hv * 0.4;
       if (q != null) return a + q;
       if (hv != null) return a + hv;
-      return a + 60;
-    }, 0) / mealFeels.length);
+      return a + 65;
+    }, 0) / mealFeels.length;
+    parts.push({ key: "food", v: foodScore, w: 15 });
   }
-  if (foodSub.length) parts.push({ key: "food", v: foodSub.reduce((a, b) => a + b, 0) / foodSub.length, w: 15 });
 
   const hydrationMl = entry.events.filter(e => e.type === "hydration" && (e.hydType === "water" || e.hydType === "tea")).reduce((a, e) => a + (Number(e.amountMl) || 0), 0);
   if (hydrationMl > 0) {
@@ -793,7 +776,7 @@ function computeDayScore(entry, prevEntry, goals) {
     parts.push({ key: "bathroom", v: bathroomAvg, w: 5 });
   }
 
-  let sleepHours = null, sleepFrom = null, sleepTo = null;
+  let sleepHours = null, sleepFrom = null, sleepTo = null, sleepScore = null;
   const wakeTime = entry.morning?.wakeTime ?? null;
   const prevBedTime = prevEntry?.evening?.bedTime ?? null;
   const prevBedNextDay = prevEntry?.evening?.bedNextDay ?? null;
@@ -814,7 +797,14 @@ function computeDayScore(entry, prevEntry, goals) {
     let sv = 100;
     if (sleepHours < sMin) sv = Math.max(0, 100 - Math.ceil((sMin - sleepHours) / 0.5) * 20);
     else if (sleepHours > sMax) sv = Math.max(0, 100 - Math.ceil((sleepHours - sMax) / 0.5) * 10);
-    parts.push({ key: "sleep", v: sv, w: 10 });
+    const bedAdj = toMin(prevBedTime) < 6 * 60 ? toMin(prevBedTime) + 1440 : toMin(prevBedTime);
+    let bedMult = 1.0;
+    if (bedAdj >= 25 * 60) bedMult = 0.6;
+    else if (bedAdj >= 24 * 60) bedMult = 0.75;
+    else if (bedAdj >= 23 * 60) bedMult = 0.9;
+    sv = sv * bedMult;
+    sleepScore = Math.round(sv);
+    parts.push({ key: "sleep", v: sv, w: 17 });
   }
   const emotions = entry.events.filter(e => e.type === "emotion");
 
@@ -834,6 +824,7 @@ function computeDayScore(entry, prevEntry, goals) {
     bathroomAvg,
     bathroomCount: bathroomEvents.length,
     sleepHours,
+    sleepScore,
     sleepFrom,
     sleepTo,
     emotions
@@ -916,12 +907,12 @@ function ScoreInfo({
   const morningPt = entry.morning ? Math.round(entry.morning.level / 5 * 100) : null;
   const eveningPt = entry.evening ? Math.round(entry.evening.level / 5 * 100) : null;
   const fastPt = score.fastHours != null ? (score.fastHours >= fastGoalH ? 100 : Math.round(Math.min(100, score.fastHours / fastGoalH * 100))) : null;
-  const foodPt = score.meals.length ? Math.round((() => { const sub = []; if (score.meals.length >= 2) { const gaps = []; for (let i = 1; i < score.meals.length; i++) gaps.push(toMin(score.meals[i]) - toMin(score.meals[i-1])); sub.push(Math.max(0, 100 - gaps.filter(g=>g<90).length*25)); } const feels = entry.events.filter(e=>e.type==="meal"&&e.feel); if (feels.length) { const fm = {"🥗 건강식":100,"🙂 건강":80,"😐 보통":60,"🍟 정크":40,"🍔 완전정크":20}; const hm = {"🌟 배고팠음":100,"😐 그냥먹음":50,"😞 안배고픔":0}; sub.push(feels.reduce((a,e)=>{ const q=e.feel?(fm[e.feel]??60):null; const hv=e.hunger?(hm[e.hunger]??null):null; if(q!=null&&hv!=null)return a+q*0.6+hv*0.4; if(q!=null)return a+q; if(hv!=null)return a+hv; return a+60; },0)/feels.length); } return sub.length ? sub.reduce((a,b)=>a+b,0)/sub.length : 0; })()) : null;
+  const foodPt = (() => { const feels = entry.events.filter(e=>e.type==="meal"&&(e.feel||e.hunger)); if (!feels.length) return null; const fm={"클린":100,"보통":65,"정크":35,"폭식":10}; const hm={"🌟 배고팠음":100,"😐 그냥먹음":50,"😞 안배고픔":0}; return Math.round(feels.reduce((a,e)=>{ const q=e.feel?(fm[e.feel]??65):null; const hv=e.hunger?(hm[e.hunger]??null):null; if(q!=null&&hv!=null)return a+q*0.6+hv*0.4; if(q!=null)return a+q; if(hv!=null)return a+hv; return a+65; },0)/feels.length); })();
   const hydPt = score.hydrationMl > 0 ? (score.hydrationMl >= hydGoalMl ? 100 : Math.round(Math.min(100, score.hydrationMl / hydGoalMl * 100))) : null;
   const exPt = score.exMinutes > 0 ? (score.exMinutes >= exGoal ? 100 : Math.round(Math.min(100, score.exMinutes / exGoal * 100))) : null;
   const medPt = score.medMinutes > 0 ? (score.medMinutes >= medGoal ? 100 : Math.round(Math.min(100, score.medMinutes / medGoal * 100))) : null;
   const bathPt = score.bathroomAvg != null ? Math.round(score.bathroomAvg) : null;
-  const sleepPt = score.sleepHours != null ? (() => { const sMin = goals.sleepGoalMinH||6, sMax = goals.sleepGoalMaxH||8; if (score.sleepHours < sMin) return Math.max(0, 100 - Math.ceil((sMin - score.sleepHours)/0.5)*20); if (score.sleepHours > sMax) return Math.max(0, 100 - Math.ceil((score.sleepHours - sMax)/0.5)*10); return 100; })() : null;
+  const sleepPt = score.sleepScore ?? null;
   const fmtPt = pt => pt != null ? `${pt}점` : "-";
   const healthGoal = goals.healthDrinkGoal || 1;
   const healthPt = score.healthDrinkCups >= healthGoal ? 100 : 0;
@@ -1653,7 +1644,7 @@ function QuickLogForm({
       display: "flex",
       gap: 6
     }
-  }, ["🥗 건강식", "🙂 건강", "😐 보통", "🍟 정크", "🍔 완전정크"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["클린", "보통", "정크", "폭식"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setMealFeel(f),
     style: {
@@ -2118,7 +2109,7 @@ function EventEditForm({
       display: "flex",
       gap: 6
     }
-  }, ["🥗 건강식", "🙂 건강", "😐 보통", "🍟 정크", "🍔 완전정크"].map(f => /*#__PURE__*/React.createElement("button", {
+  }, ["클린", "보통", "정크", "폭식"].map(f => /*#__PURE__*/React.createElement("button", {
     key: f,
     onClick: () => setFeel(f),
     style: {
