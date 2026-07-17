@@ -123,12 +123,12 @@
         try {
           await _db.collection("users").doc(uid).collection("data").doc(key).set({ value });
         } catch(e) {
+          console.error("🔴 Firestore 저장 실패:", key, e.code, e.message);
           const raw = localStorage.getItem(this._pendingKey(uid));
           const pending = raw ? JSON.parse(raw) : [];
           const idx = pending.findIndex(p => p.key === key);
           if (idx >= 0) pending[idx].value = value; else pending.push({ key, value });
           localStorage.setItem(this._pendingKey(uid), JSON.stringify(pending));
-          console.warn("Firestore write queued:", key);
         }
         return { key, value };
       },
