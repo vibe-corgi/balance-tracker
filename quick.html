@@ -127,6 +127,8 @@ const EMOTIONS = [
   {name:"설렘",emoji:"🤩"},{name:"감사",emoji:"🙏"},{name:"뿌듯",emoji:"😁"},
   {name:"재미",emoji:"😆"},{name:"행복",emoji:"😊"},{name:"상쾌",emoji:"✨"},
   {name:"활력",emoji:"⚡"},{name:"기쁨",emoji:"😄"},
+  {name:"아픔",emoji:"🤒"},{name:"두통",emoji:"🤕"},{name:"피곤",emoji:"😪"},
+  {name:"여유",emoji:"😎"},{name:"기타",emoji:"📝"},
 ];
 const MEAL_HEALTH  = ["🥗 건강식","🙂 건강","😐 보통","🍟 정크","🍔 완전정크"];
 const MEAL_HUNGER  = ["🌟 배고팠음","😐 그냥먹음","😞 안배고픔"];
@@ -355,31 +357,12 @@ function MemoArea({ value, onChange, placeholder="메모 (선택)" }) {
 }
 
 function TimeInput({ value, onChange, label }) {
-  const hh=parseInt((value||"00:00").split(":")[0]);
-  const isAM=hh<12;
-  const toggleAP=()=>{
-    const [h2,m2]=(value||"00:00").split(":").map(Number);
-    const newH=isAM?(h2+12)%24:Math.max(0,h2-12);
-    onChange(`${String(newH).padStart(2,"0")}:${String(m2).padStart(2,"0")}`);
-  };
   return h("div",null,
     label && h("label",{ style:labelSt },label),
-    h("div",{ style:{ display:"flex", gap:6, alignItems:"stretch", overflow:"visible" } },
-      h("button",{ onClick:toggleAP, style:{
-        background:PU, border:"none", color:"#fff",
-        cursor:"pointer", borderRadius:10, padding:"0 12px",
-        fontSize:13, fontWeight:800, flexShrink:0, minWidth:54, textAlign:"center",
-      }},isAM?"오전":"오후"),
-      // wrapper div prevents the input from being clipped
-      h("div",{ style:{ flex:1, minWidth:0, overflow:"visible" } },
-        h("input",{ type:"time", value, onChange:e=>onChange(e.target.value),
-          style:{
-            ...inputSt,
-            width:"100%",
-            paddingRight:8,  // give clock icon breathing room
-          }
-        })
-      )
+    h("div",{ style:{ overflow:"visible" } },
+      h("input",{ type:"time", value, onChange:e=>onChange(e.target.value),
+        style:{ ...inputSt, width:"100%", paddingRight:8 }
+      })
     )
   );
 }
@@ -621,11 +604,14 @@ function BathroomForm({entry,onSave,onCancel,editEv}) {
 
 function EmotionForm({entry,onSave,onCancel,editEv}) {
   const [time,setTime]=useState(editEv?.time??nowHM());
-  const [emotion,setEmotion]=useState(editEv?.name??null);
+  const isExistingCustom = editEv?.name && !EMOTIONS.some(e=>e.name===editEv.name);
+  const [emotion,setEmotion]=useState(isExistingCustom?"기타":(editEv?.name??null));
+  const [customName,setCustomName]=useState(isExistingCustom?editEv.name:"");
   const [memo,setMemo]=useState(editEv?.memo??"");
+  const finalName = emotion==="기타" ? (customName.trim()||"기타") : emotion;
   return h(FormWrap,{title:"💭 감정",onCancel,onSave:()=>{
     if(!emotion)return alert("감정을 선택해줘요");
-    const ev={id:editEv?.id??uid6(),type:"emotion",time,name:emotion,memo};
+    const ev={id:editEv?.id??uid6(),type:"emotion",time,name:finalName,memo};
     const evs=editEv?(entry.events||[]).map(e=>e.id===editEv.id?ev:e):[...(entry.events||[]),ev];
     onSave({...entry,events:evs});
   }},
@@ -645,6 +631,11 @@ function EmotionForm({entry,onSave,onCancel,editEv}) {
           h("span",{style:{fontSize:10,fontWeight:700}},name)
         ))
       )
+    ),
+    emotion==="기타" && h("div",{style:secSt},
+      h("label",{style:labelSt},"어떤 감정인가요?"),
+      h("input",{type:"text",value:customName,onChange:e=>setCustomName(e.target.value),
+        placeholder:"직접 입력...",style:{...inputSt,width:"100%"}})
     ),
     h("div",{style:secSt}, h("label",{style:labelSt},"메모 (선택)"), h(MemoArea,{value:memo,onChange:setMemo}))
   );
