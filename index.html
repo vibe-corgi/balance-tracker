@@ -596,6 +596,7 @@ async function loadEntry(date, attempt = 0) {
     const res = await window.storage.get(`entry:${date}`);
     if (!res) return emptyEntry(date);
     const e = JSON.parse(res.value);
+    e.date = date;
     console.log(`[loadEntry] ${date}`, { morning: e.morning ? JSON.stringify(e.morning).slice(0,80) : null, evening: e.evening ? JSON.stringify(e.evening).slice(0,80) : null, events: e.events?.length });
     if (!Array.isArray(e.events)) e.events = [];
     const hasMorning = e.morning && (e.morning.level != null || e.morning.wakeTime || e.morning.period || e.morning.stretch || e.morning.saltGargle || e.morning.note);
