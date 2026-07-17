@@ -893,6 +893,37 @@ function SectionLabel({
     }
   }, emoji && /*#__PURE__*/React.createElement("span", null, emoji), children);
 }
+function ScoreCriteria() {
+  const [open, setOpen] = useState(false);
+  const criteria = [
+    { label: "아침 컨디션", w: 5, desc: "컨디션 1~5단계 → 20/40/60/80/100점" },
+    { label: "저녁 컨디션", w: 5, desc: "컨디션 1~5단계 → 20/40/60/80/100점" },
+    { label: "수면", w: 17, desc: "수면시간 점수 × 취침배율\n23시전×1.0 / 23시대×0.9 / 자정대×0.75 / 1시이후×0.6" },
+    { label: "화장실", w: 5, desc: "쾌변감 평균 (아주편함100~아주불편10)" },
+    { label: "공복", w: 15, desc: "전날 마지막 식사 → 오늘 첫 식사\n목표 달성 시 100점" },
+    { label: "식사", w: 15, desc: "품질(클린100/보통65/정크35/폭식10)×0.6\n+ 공복감×0.4" },
+    { label: "운동", w: 15, desc: "목표 시간 대비 달성률" },
+    { label: "명상", w: 10, desc: "목표 시간 대비 달성률" },
+    { label: "수분", w: 10, desc: "목표 수분량 대비 달성률" },
+    { label: "건강음료", w: 3, desc: "목표 잔수 달성 시 100점" },
+  ];
+  const btnStyle = { width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${INK}`, background: "#fff", color: INK, fontSize: 10, fontWeight: 800, cursor: "pointer", lineHeight: "16px" };
+  return /*#__PURE__*/React.createElement("div", { style: { position: "relative" }, onMouseEnter: () => setOpen(true), onMouseLeave: () => setOpen(false) },
+    /*#__PURE__*/React.createElement("button", { onClick: () => setOpen(o => !o), style: btnStyle }, "기"),
+    open && /*#__PURE__*/React.createElement("div", {
+      style: { position: "absolute", top: 24, left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "#fff", border: `2px solid ${INK}`, borderRadius: 2, padding: 10, width: 240, boxShadow: "3px 3px 0 rgba(0,0,0,0.15)" }
+    },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, fontWeight: 800, color: INK, marginBottom: 6, textAlign: "left" } }, "점수기준"),
+      criteria.map(c => /*#__PURE__*/React.createElement("div", { key: c.label, style: { borderBottom: "1px solid #eee", padding: "4px 0" } },
+        /*#__PURE__*/React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 10.5, fontWeight: 700, color: INK } },
+          /*#__PURE__*/React.createElement("span", null, c.label),
+          /*#__PURE__*/React.createElement("span", { style: { color: "#B0A8C4" } }, c.w, "%")
+        ),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 9.5, color: "#7B6FA0", marginTop: 2, whiteSpace: "pre-line", textAlign: "left" } }, c.desc)
+      ))
+    )
+  );
+}
 function ScoreInfo({
   score,
   goals,
@@ -1504,6 +1535,7 @@ function QuickLogForm({
   const [mealFeel, setMealFeel] = useState(null);
   const [mealHunger, setMealHunger] = useState(null);
   const [lotus, setLotus] = useState(false);
+  const [nap, setNap] = useState(false);
   const [emotion, setEmotion] = useState(null);
   const [customName, setCustomName] = useState("");
   const [hydType, setHydType] = useState("water");
@@ -1517,7 +1549,8 @@ function QuickLogForm({
       endTime,
       duration: computedDuration,
       memo,
-      lotus
+      lotus,
+      ...(type === "rest" && { nap })
     });else if (type === "meal") onSubmit({
       time,
       endTime,
@@ -1733,7 +1766,11 @@ function QuickLogForm({
     type: "checkbox",
     checked: lotus,
     onChange: e => setLotus(e.target.checked)
-  }), " 결가부좌 자세로")), type === "bathroom" && /*#__PURE__*/React.createElement("div", null,
+  }), " 결가부좌 자세로")), type === "rest" && /*#__PURE__*/React.createElement("label", {
+    style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 10, color: INK, fontWeight: 600 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox", checked: nap, onChange: e => setNap(e.target.checked)
+  }), " 😴 수면"), type === "bathroom" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     style: { marginBottom: 10 }
   }, /*#__PURE__*/React.createElement("input", {
@@ -2776,11 +2813,10 @@ function TodayView({
       fontSize: 28,
       color: INK
     }
-  }, score.total), score && /*#__PURE__*/React.createElement(ScoreInfo, {
-    score: score,
-    goals: goals,
-    entry: entry
-  })), /*#__PURE__*/React.createElement("div", {
+  }, score.total), score && /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 5, alignItems: "center" } },
+    /*#__PURE__*/React.createElement(ScoreInfo, { score: score, goals: goals, entry: entry }),
+    /*#__PURE__*/React.createElement(ScoreCriteria, null)
+  )), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       fontWeight: 700,
