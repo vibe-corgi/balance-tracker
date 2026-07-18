@@ -3178,6 +3178,15 @@ function FlowView({
     const medOn = score && score.medMinutes > 0;
     const restOn = score && score.restMinutes > 0;
     const bathOn = score && score.bathroomAvg != null;
+    const morningLv = loaded?.entry?.morning?.level;
+    const eveningLv = loaded?.entry?.evening?.level;
+    const morningOn = morningLv != null;
+    const eveningOn = eveningLv != null;
+    const mealFeels = loaded?.entry?.events?.filter(e => e.type === "meal" && (e.feel || e.hunger)) || [];
+    const foodOn = mealFeels.length > 0;
+    const feelLabels = mealFeels.map(e => e.feel).filter(Boolean);
+    const foodText = feelLabels.length > 0 ? feelLabels.slice(0, 4).join(' · ') : `${mealFeels.length}회`;
+    const healthDrinkOn = score && score.healthDrinkCups > 0;
     const emotions = loaded?.entry?.morning ? [] : (loaded?.entry?.events?.flatMap(ev => ev.emotions || []) || []);
     const isOpen = openDays.has(date);
     const d = { date, score };
@@ -3239,6 +3248,12 @@ function FlowView({
     }, isOpen ? (loaded ? "▲" : "…") : "▽")), isOpen && loaded && /*#__PURE__*/React.createElement("div", {
       style: { paddingLeft: 34, paddingTop: 2, display: "flex", flexDirection: "column", gap: 4 }
     },
+      morningOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        "☀️", "아침 ", `${morningLv}/5`
+      ),
+      eveningOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        "🌙", "저녁 ", `${eveningLv}/5`
+      ),
       fastOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
         /*#__PURE__*/React.createElement(Moon, { size: 11, strokeWidth: 2.5, color: "#D98A2B" }), "공복 ", fmtHM(score.fastHours * 60),
         score.fastFrom && score.fastTo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: "#8a80a0", fontWeight: 600, marginLeft: 3 } }, score.fastFrom, " → ", score.fastTo)
@@ -3247,8 +3262,14 @@ function FlowView({
         /*#__PURE__*/React.createElement(Clock, { size: 11, strokeWidth: 2.5, color: "#9B6FC7" }), "수면 ", fmtHM(score.sleepHours * 60),
         score.sleepFrom && score.sleepTo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: "#8a80a0", fontWeight: 600, marginLeft: 3 } }, score.sleepFrom, " → ", score.sleepTo)
       ),
+      foodOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(UtensilsCrossed, { size: 11 }), "식사 ", foodText
+      ),
       waterOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
         /*#__PURE__*/React.createElement(CupSoda, { size: 11, strokeWidth: 2.5, color: "#5FB5D9" }), "수분 ", `${(score.hydrationMl / 1000).toFixed(1)}L`
+      ),
+      healthDrinkOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        "🌿", "건강음료 ", `${score.healthDrinkCups}잔`
       ),
       exOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
         /*#__PURE__*/React.createElement(Dumbbell, { size: 11, strokeWidth: 2.5, color: "#38B27E" }), "운동 ", fmtHM(score.exMinutes)
