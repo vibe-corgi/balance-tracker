@@ -3157,14 +3157,7 @@ function FlowView({
       width: "100%",
       height: 170
     }
-  }, /*#__PURE__*/React.createElement(SimpleLineChart, { data: chartData, gaugeColors: GAUGE_COLOR }))), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 11,
-      color: "#8a80a0",
-      padding: "4px 6px 2px",
-      lineHeight: 1.6
-    }
-  }, "아침(15%)·저녁(10%)·공복(10%)·음식(10%)·수분(10%)·운동(10%)·명상(10%)·화장실(15%)·수면(10%) 합산. 휴식·감정은 점수 미반영. 기록 없는 항목은 제외 후 재계산.")), /*#__PURE__*/React.createElement(SectionLabel, {
+  }, /*#__PURE__*/React.createElement(SimpleLineChart, { data: chartData, gaugeColors: GAUGE_COLOR })))), /*#__PURE__*/React.createElement(SectionLabel, {
     emoji: "🗓️"
   }, "하루하루"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3244,126 +3237,38 @@ function FlowView({
     }))), /*#__PURE__*/React.createElement("span", {
       style: { marginLeft: 4, fontSize: 10, color: "#8a80a0" }
     }, isOpen ? (loaded ? "▲" : "…") : "▽")), isOpen && loaded && /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "5px 10px",
-        paddingLeft: 34,
-        fontSize: 11,
-        fontWeight: 700
-      }
-    }, /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: fastOn ? "#5B5580" : "#B0A8C4",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement(Moon, {
-      size: 12,
-      strokeWidth: 2.5,
-      color: "#D98A2B"
-    }), "공복 ", fastOn ? fmtHM(score.fastHours * 60) : "기록없음"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: sleepOn ? "#5B5580" : "#B0A8C4",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement(Clock, {
-      size: 12,
-      strokeWidth: 2.5,
-      color: "#9B6FC7"
-    }), "수면 ", sleepOn ? fmtHM(score.sleepHours * 60) : "기록없음"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: waterOn ? "#5B5580" : "#B0A8C4",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement(CupSoda, {
-      size: 12,
-      strokeWidth: 2.5,
-      color: "#5FB5D9"
-    }), "수분 ", waterOn ? `${(score.hydrationMl / 1000).toFixed(2)}L` : "기록없음"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: exOn ? "#5B5580" : "#B0A8C4",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement(Dumbbell, {
-      size: 12,
-      strokeWidth: 2.5,
-      color: "#38B27E"
-    }), "운동 ", exOn ? fmtHM(score.exMinutes) : "기록없음"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: medOn ? "#5B5580" : "#B0A8C4",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement(Flower2, {
-      size: 12,
-      strokeWidth: 2.5,
-      color: "#3BAEC9"
-    }), "명상 ", medOn ? fmtHM(score.medMinutes) : "기록없음"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: restOn ? "#5B5580" : "#B0A8C4",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement(Moon, {
-      size: 12,
-      strokeWidth: 2.5,
-      color: "#6D7BD9"
-    }), "휴식 ", restOn ? fmtHM(score.restMinutes) : "기록없음"), /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: bathOn ? "#5B5580" : "#B0A8C4",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4
-      }
-    }, /*#__PURE__*/React.createElement(Droplets, {
-      size: 12,
-      strokeWidth: 2.5,
-      color: "#FF7A59"
-    }), "화장실 ", bathOn ? score.bathroomAvg >= 90 ? "아주 편함" : score.bathroomAvg >= 70 ? "편함" : score.bathroomAvg >= 50 ? "보통" : score.bathroomAvg >= 30 ? "불편" : "아주 불편" : "기록없음"), loaded.entry?.morning?.period && /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: "#E74C8B",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        fontWeight: 700
-      }
-    }, "🩸 생리중")));
-  })), mealStats && /*#__PURE__*/React.createElement("div", {
-    style: {
-      background: CARD,
-      border: `3px solid ${INK}`,
-      borderRadius: 2,
-      padding: 16,
-      marginTop: 12,
-      boxShadow: "2px 2px 0 rgba(0,0,0,0.1)"
-    }
-  }, /*#__PURE__*/React.createElement(SectionLabel, {
-    emoji: "🍽️"
-  }, "식사 리듬 (", monthLabel(cursor.year, cursor.month), ")"), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 13,
-      color: "#5B5580",
-      lineHeight: 1.7,
-      margin: 0
-    }
-  }, "가장 이른 식사는 ", /*#__PURE__*/React.createElement("b", null, mealStats.first), ", 가장 늦은 식사는 ", /*#__PURE__*/React.createElement("b", null, mealStats.last), "이었어요. 이 달 총 ", /*#__PURE__*/React.createElement("b", null, mealStats.count), "번 기록됐어요."), /*#__PURE__*/React.createElement("p", {
-    style: {
-      fontSize: 11.5,
-      color: "#8a80a0",
-      marginTop: 10,
-      lineHeight: 1.6
-    }
-  }, "판단이 아니라 관찰이에요. 패턴이 궁금해지면 전문가와 함께 살펴보세요.")));
+      style: { paddingLeft: 34, paddingTop: 2, display: "flex", flexDirection: "column", gap: 4 }
+    },
+      fastOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(Moon, { size: 11, strokeWidth: 2.5, color: "#D98A2B" }), "공복 ", fmtHM(score.fastHours * 60),
+        score.fastFrom && score.fastTo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: "#8a80a0", fontWeight: 600, marginLeft: 3 } }, score.fastFrom, " → ", score.fastTo)
+      ),
+      sleepOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(Clock, { size: 11, strokeWidth: 2.5, color: "#9B6FC7" }), "수면 ", fmtHM(score.sleepHours * 60),
+        score.sleepFrom && score.sleepTo && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: "#8a80a0", fontWeight: 600, marginLeft: 3 } }, score.sleepFrom, " → ", score.sleepTo)
+      ),
+      waterOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(CupSoda, { size: 11, strokeWidth: 2.5, color: "#5FB5D9" }), "수분 ", `${(score.hydrationMl / 1000).toFixed(1)}L`
+      ),
+      exOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(Dumbbell, { size: 11, strokeWidth: 2.5, color: "#38B27E" }), "운동 ", fmtHM(score.exMinutes)
+      ),
+      medOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(Flower2, { size: 11, strokeWidth: 2.5, color: "#3BAEC9" }), "명상 ", fmtHM(score.medMinutes)
+      ),
+      restOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(Moon, { size: 11, strokeWidth: 2.5, color: "#6D7BD9" }), "휴식 ", fmtHM(score.restMinutes)
+      ),
+      bathOn && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#5B5580" } },
+        /*#__PURE__*/React.createElement(Droplets, { size: 11, strokeWidth: 2.5, color: "#FF7A59" }),
+        "화장실 ", score.bathroomAvg >= 90 ? "아주 편함" : score.bathroomAvg >= 70 ? "편함" : score.bathroomAvg >= 50 ? "보통" : score.bathroomAvg >= 30 ? "불편" : "아주 불편",
+        score.bathroomCount > 1 && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, color: "#8a80a0", fontWeight: 600, marginLeft: 3 } }, `${score.bathroomCount}회`)
+      ),
+      loaded.entry?.morning?.period && /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#E74C8B" } },
+        "🩸 생리중"
+      )
+    );
+  })));
 }
 
 /* ---------- Archive view (grouped by month) ---------- */
