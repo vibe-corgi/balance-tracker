@@ -716,12 +716,14 @@ function computeDayScore(entry, prevEntry, goals) {
   }
 
   const meals = entry.events.filter(e => e.type === "meal").map(e => e.time).sort();
-  const prevMeals = prevEntry ? prevEntry.events.filter(e => e.type === "meal").map(e => e.time).sort() : [];
+  const isFastBreaker = e => e.type === "meal" || (e.type === "hydration" && (e.hydType === "commercial" || e.hydType === "health"));
+  const fastBreakers = entry.events.filter(isFastBreaker).map(e => e.time).sort();
+  const prevFastBreakers = prevEntry ? prevEntry.events.filter(isFastBreaker).map(e => e.time).sort() : [];
   let fastHours = null;
   let fastFrom = null, fastTo = null;
-  if (meals.length && prevMeals.length) {
-    fastFrom = prevMeals[prevMeals.length - 1];
-    fastTo = meals[0];
+  if (fastBreakers.length && prevFastBreakers.length) {
+    fastFrom = prevFastBreakers[prevFastBreakers.length - 1];
+    fastTo = fastBreakers[0];
     const fastMin = 1440 - toMin(fastFrom) + toMin(fastTo);
     fastHours = fastMin / 60;
     const goalH = goals.fastingGoalHours || 12;
@@ -900,7 +902,7 @@ function ScoreCriteria() {
     { label: "저녁 컨디션", w: 5, desc: "컨디션 1~5단계 → 20/40/60/80/100점" },
     { label: "수면", w: 17, desc: "수면시간 점수 × 취침배율\n23시전×1.0 / 23시대×0.9 / 자정대×0.75 / 1시이후×0.6" },
     { label: "화장실", w: 5, desc: "쾌변감 평균 (아주편함100~아주불편10)" },
-    { label: "공복", w: 15, desc: "전날 마지막 식사 → 오늘 첫 식사\n목표 달성 시 100점" },
+    { label: "공복", w: 15, desc: "전날 마지막 식사/시판음료/건강음료\n→ 오늘 첫 식사/시판음료/건강음료\n목표 달성 시 100점" },
     { label: "식사", w: 15, desc: "품질(클린100/보통65/정크35/폭식10)×0.6\n+ 공복감×0.4" },
     { label: "운동", w: 15, desc: "목표 시간 대비 달성률" },
     { label: "명상", w: 10, desc: "목표 시간 대비 달성률" },
