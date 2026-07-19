@@ -715,7 +715,7 @@ function computeDayScore(entry, prevEntry, goals) {
   // 아침 루틴 (5%): 기상 후 1시간 폰 끄기
   if (entry.morning?.morningRoutine) parts.push({ key: "morningRoutine", v: 100, w: 5 });
   // 찬물샤워 (5%) — 활동 이벤트에서 체크
-  const hasColdShower = entry.events.filter(e => e.type === "exercise").some(e => (e.exTypes || []).includes("찬물샤워"));
+  const hasColdShower = entry.events.filter(e => e.type === "activity").some(e => e.coldShower);
   if (hasColdShower) parts.push({ key: "coldShower", v: 100, w: 5 });
 
   const meals = entry.events.filter(e => e.type === "meal").map(e => e.time).sort();
@@ -950,7 +950,7 @@ function ScoreInfo({
   const fastGoalH = goals.fastingGoalHours || 12;
   const morningPt = entry.morning?.morningRoutine ? 100 : null;
   const eveningPt = entry.evening?.eveningRoutine ? 100 : null;
-  const coldShowerPt = entry.events?.filter(e=>e.type==="exercise").some(e=>(e.exTypes||[]).includes("찬물샤워")) ? 100 : null;
+  const coldShowerPt = entry.events?.filter(e=>e.type==="activity").some(e=>e.coldShower) ? 100 : null;
   const fastPt = score.fastHours != null ? (score.fastHours >= fastGoalH ? 100 : Math.round(Math.min(100, score.fastHours / fastGoalH * 100))) : null;
   const foodPt = (() => { const feels = entry.events.filter(e=>e.type==="meal"&&(e.feel||e.hunger||e.mealPrep)); if (!feels.length) return null; const fm={"클린":100,"보통":70,"정크":30,"폭식":0}; const hm={"😋 많이 배고팠음":100,"🙂 적당히 배고팠음":70,"😐 그냥 먹음":40,"😮‍💨 안 배고팠음":0}; const pm={"🍽️ 잘 차렸음":100,"🥡 대충 때움":0}; return Math.round(feels.reduce((a,e)=>{ const q=e.feel?(fm[e.feel]??null):null; const hv=e.hunger?(hm[e.hunger]??null):null; const pv=e.mealPrep?(pm[e.mealPrep]??null):null; let t=0,w=0; if(q!=null){t+=q*70;w+=70;} if(hv!=null){t+=hv*25;w+=25;} if(pv!=null){t+=pv*5;w+=5;} return w>0?a+t/w:a; },0)/feels.length); })();
   const hydPt = score.hydrationMl > 0 ? (score.hydrationMl >= hydGoalMl ? 100 : Math.round(Math.min(100, score.hydrationMl / hydGoalMl * 100))) : null;
@@ -1542,6 +1542,7 @@ function QuickLogForm({
   const [mantra, setMantra] = useState(false);
   const [snack, setSnack] = useState(false);
   const [dessert, setDessert] = useState(false);
+  const [coldShower, setColdShower] = useState(false);
   const [exTypes, setExTypes] = useState(new Set());
   const toggleExType = t => setExTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
   const [emotion, setEmotion] = useState(null);
@@ -1561,6 +1562,7 @@ function QuickLogForm({
       ...(type === "rest" && { nap, zoneOut }),
       ...(type === "meditation" && { mantra }),
       ...(type === "exercise" && exTypes.size > 0 && { exTypes: [...exTypes] }),
+      ...(type === "activity" && { coldShower }),
     });else if (type === "meal") onSubmit({
       time,
       endTime,
@@ -1809,7 +1811,11 @@ function QuickLogForm({
       marginTop: 0,
       background: "#ffffffcc"
     }
-  }), type === "meditation" && /*#__PURE__*/React.createElement("div", {
+  }), type === "activity" && /*#__PURE__*/React.createElement("label", {
+    style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 10, color: INK, fontWeight: 600 }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox", checked: coldShower, onChange: e => setColdShower(e.target.checked)
+  }), "🚿 찬물샤워"), type === "meditation" && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 16, marginTop: 10 }
   }, /*#__PURE__*/React.createElement("label", {
     style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: INK, fontWeight: 600 }
@@ -1828,11 +1834,11 @@ function QuickLogForm({
   type === "exercise" && /*#__PURE__*/React.createElement("div", { style: { marginTop: 10 } },
     /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: "#5B5580", fontWeight: 700, marginBottom: 6 } }, "운동 종류"),
     /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
-      ["달리기", "산책", "요가", "스트레칭", "근력운동", "찬물샤워"].map(t => /*#__PURE__*/React.createElement("label", {
+      ["달리기", "산책", "요가", "스트레칭", "근력운동"].map(t => /*#__PURE__*/React.createElement("label", {
         key: t, style: { display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: INK, fontWeight: 600 }
       }, /*#__PURE__*/React.createElement("input", {
         type: "checkbox", checked: exTypes.has(t), onChange: () => toggleExType(t)
-      }), t === "찬물샤워" ? "🚿 찬물샤워" : t)))), type === "bathroom" && /*#__PURE__*/React.createElement("div", null,
+      }), t)))), type === "bathroom" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     style: { marginBottom: 10 }
   }, /*#__PURE__*/React.createElement("input", {
@@ -2132,6 +2138,7 @@ function EventEditForm({
   const [mantra, setMantra] = useState(ev.mantra || false);
   const [snack, setSnack] = useState(ev.snack || false);
   const [dessert, setDessert] = useState(ev.dessert || false);
+  const [coldShower, setColdShower] = useState(ev.coldShower || false);
   const [exTypes, setExTypes] = useState(new Set(ev.exTypes || []));
   const toggleExType = t => setExTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
   const isExistingCustom = ev.name && !EMOTION_NAMES.includes(ev.name);
@@ -2150,6 +2157,7 @@ function EventEditForm({
       ...(ev.type === "rest" && { nap, zoneOut }),
       ...(ev.type === "meditation" && { mantra }),
       ...(ev.type === "exercise" && { exTypes: [...exTypes] }),
+      ...(ev.type === "activity" && { coldShower }),
     });else if (ev.type === "meal") onSave({
       time,
       endTime,
@@ -2368,7 +2376,9 @@ function EventEditForm({
     style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: INK, fontWeight: 600 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox", checked: exTypes.has(t), onChange: () => toggleExType(t)
-  }), t)))), ev.type === "bathroom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), t)))), ev.type === "activity" && /*#__PURE__*/React.createElement("label", {
+    style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 10, color: INK, fontWeight: 600 }
+  }, /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: coldShower, onChange: e => setColdShower(e.target.checked) }), "🚿 찬물샤워"), ev.type === "bathroom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 8
     }
@@ -3378,7 +3388,8 @@ function StatsView({ goals }) {
         const hG = (goals?.hydrationGoalL??1.5)*1000;
         const healthCups = hy.filter(e=>e.hydType==="health").reduce((a,e)=>a+(Number(e.cups)||1),0);
         const exEvs = ev.filter(e=>e.type==="exercise");
-        const exT = {}; ["달리기","산책","요가","스트레칭","근력운동","찬물샤워"].forEach(t=>{exT[t]=0;});
+        const actEvs = ev.filter(e=>e.type==="activity");
+        const exT = {}; ["달리기","산책","요가","스트레칭","근력운동"].forEach(t=>{exT[t]=0;});
         exEvs.forEach(e=>(e.exTypes||[]).forEach(t=>{if(t in exT)exT[t]++;}));
         const medEvs = ev.filter(e=>e.type==="meditation");
         const rstEvs = ev.filter(e=>e.type==="rest");
@@ -3408,7 +3419,7 @@ function StatsView({ goals }) {
           snackN:meals.filter(e=>e.snack).length, fc,
           period: entry.morning?.period ? 1 : 0,
           morningRoutine: entry.morning?.morningRoutine ? 1 : 0,
-          coldShower: exEvs.some(e=>(e.exTypes||[]).includes("찬물샤워")) ? 1 : 0,
+          coldShower: actEvs.some(e=>e.coldShower) ? 1 : 0,
           eveningRoutine: entry.evening?.eveningRoutine ? 1 : 0,
         };
       });
