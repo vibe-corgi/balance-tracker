@@ -3368,8 +3368,8 @@ function StatsView({ goals }) {
         const sc = computeDayScore(entry, map[allKeys[i]], goals);
         const ev = entry.events || [];
         const hy = ev.filter(e => e.type==="hydration");
-        const wMl = hy.filter(e=>e.hydType==="water").reduce((a,e)=>a+(e.amount||0),0);
-        const tMl = hy.filter(e=>e.hydType==="tea").reduce((a,e)=>a+(e.amount||0),0);
+        const wMl = hy.filter(e=>e.hydType==="water").reduce((a,e)=>a+(Number(e.amountMl)||0),0);
+        const tMl = hy.filter(e=>e.hydType==="tea").reduce((a,e)=>a+(Number(e.amountMl)||0),0);
         const hG = (goals?.hydrGoalL??1.5)*1000;
         const exEvs = ev.filter(e=>e.type==="exercise");
         const exT = {}; ["달리기","산책","요가","스트레칭","근력운동"].forEach(t=>{exT[t]=0;});
@@ -3441,7 +3441,7 @@ function StatsView({ goals }) {
   const d7 = stats||Array(7).fill(null);
   if (busy) return /*#__PURE__*/React.createElement("div",{style:{padding:40,textAlign:"center",color:"#8a80a0",fontSize:13}},"불러오는 중…");
   return /*#__PURE__*/React.createElement("div",{style:{paddingBottom:80}},
-    /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f7f5ff",borderBottom:`2px solid ${INK}`,position:"sticky",top:0,zIndex:10}},
+    /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f7f5ff",borderBottom:`2px solid ${INK}`,marginBottom:8}},
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,-7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"◀"),
       /*#__PURE__*/React.createElement("div",{style:{textAlign:"center"}},
         /*#__PURE__*/React.createElement("div",{style:{fontWeight:800,fontSize:13,color:INK}},wkLabel),
