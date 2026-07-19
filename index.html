@@ -486,7 +486,7 @@ const HYDRATION_TYPES = [
   { key: "water", icon: null, comp: HydIconWater, label: "물" },
   { key: "tea", icon: "🍵", label: "차" },
   { key: "coffee", icon: "☕", label: "커피" },
-  { key: "milk", icon: "🥛", label: "밀크" },
+  { key: "milk", icon: "🥛", label: "음료" },
   { key: "commercial", icon: null, comp: HydIconFrap, label: "시판음료" },
   { key: "health", icon: "🥝", label: "건강음료" },
   { key: "alcohol", icon: "🍺", label: "술" }
@@ -1605,17 +1605,27 @@ function QuickLogForm({
     style: { background: "none", border: "none", cursor: "pointer" }
   }, /*#__PURE__*/React.createElement(X, { size: 16, color: INK }))),
   infoOpen && type === "meal" && /*#__PURE__*/React.createElement("div", {
-    style: { background: "#ffffffbb", border: `1.5px solid ${INK}`, borderRadius: 2, padding: "8px 10px", marginBottom: 10, fontSize: 10.5, color: INK, lineHeight: 1.7 }
-  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 4, fontSize: 11 } }, "🍽️ 식사 점수 — 전체의 15%"),
-    /*#__PURE__*/React.createElement("div", null, "품질 70%: 🥗클린 100 / 🍚보통 70 / 🍟정크 30 / 🍔폭식 0"),
-    /*#__PURE__*/React.createElement("div", null, "공복감 25%: 😋많이 100 / 🙂적당히 70 / 😐그냥 40 / 😮‍💨안배고픔 0"),
-    /*#__PURE__*/React.createElement("div", null, "식사준비 5%: 🍽️잘 차렸음 100 / 🥡대충 때움 0")),
+    style: { background: "#ffffffbb", border: `1.5px solid ${INK}`, borderRadius: 2, padding: "8px 10px", marginBottom: 10, fontSize: 10, color: INK }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 6, fontSize: 11 } }, "🍽️ 식사 점수 — 전체의 15%"),
+    /*#__PURE__*/React.createElement("div", { style: { fontWeight: 700, color: "#5B5580", marginBottom: 3 } }, "품질 70%"),
+    [["🥗 클린", 100, "자연식 위주, 채소·단백질·통곡물 등 균형 잡힌 식사"], ["🍚 보통", 70, "평범한 집밥이나 일반 외식, 크게 건강하지도 나쁘지도 않은 식사"], ["🍟 정크", 30, "가공식품, 패스트푸드, 당·기름이 많은 식사"], ["🍔 폭식", 0, "양 조절에 실패한 식사, 과식·야식·배부른데도 계속 먹음"]].map(([lbl, sc, desc]) => /*#__PURE__*/React.createElement("div", { key: lbl, style: { display: "flex", gap: 4, marginBottom: 2, alignItems: "flex-start" } },
+      /*#__PURE__*/React.createElement("span", { style: { minWidth: 48, fontWeight: 700 } }, lbl),
+      /*#__PURE__*/React.createElement("span", { style: { minWidth: 20, color: "#8a80a0", fontWeight: 700, flexShrink: 0 } }, sc),
+      /*#__PURE__*/React.createElement("span", { style: { color: "#5B5580", lineHeight: 1.5 } }, desc))),
+    /*#__PURE__*/React.createElement("div", { style: { fontWeight: 700, color: "#5B5580", marginTop: 6, marginBottom: 3 } }, "공복감 25%"),
+    [["😋 많이 배고팠음", 100, "공복감이 분명했고 몸이 자연스럽게 식사를 원함"], ["🙂 적당히 배고팠음", 70, "조금 배고파 식사하기 좋은 상태"], ["😐 그냥 먹음", 40, "시간이 되어서, 습관적으로, 함께 먹어서 식사함"], ["😮‍💨 안 배고팠음", 0, "배가 부른데도 먹음, 심심함·스트레스 등으로 먹음"]].map(([lbl, sc, desc]) => /*#__PURE__*/React.createElement("div", { key: lbl, style: { display: "flex", gap: 4, marginBottom: 2, alignItems: "flex-start" } },
+      /*#__PURE__*/React.createElement("span", { style: { minWidth: 84, fontWeight: 700 } }, lbl),
+      /*#__PURE__*/React.createElement("span", { style: { minWidth: 20, color: "#8a80a0", fontWeight: 700, flexShrink: 0 } }, sc),
+      /*#__PURE__*/React.createElement("span", { style: { color: "#5B5580", lineHeight: 1.5 } }, desc))),
+    /*#__PURE__*/React.createElement("div", { style: { fontWeight: 700, color: "#5B5580", marginTop: 6, marginBottom: 3 } }, "식사준비 5%"),
+    /*#__PURE__*/React.createElement("div", { style: { color: "#5B5580" } }, "🍽️ 잘 차렸음 100 · 🥡 대충 때움 0")),
   infoOpen && type === "hydration" && /*#__PURE__*/React.createElement("div", {
-    style: { background: "#ffffffbb", border: `1.5px solid ${INK}`, borderRadius: 2, padding: "8px 10px", marginBottom: 10, fontSize: 10.5, color: INK, lineHeight: 1.7 }
-  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 4, fontSize: 11 } }, "💧 수분 점수 — 전체의 10% + α"),
-    /*#__PURE__*/React.createElement("div", null, "💧물 · 🍵차 → 수분 목표량에 포함 (기본 1.5L)"),
-    /*#__PURE__*/React.createElement("div", null, "🥬건강음료 → 별도 목표 달성 시 +3%"),
-    /*#__PURE__*/React.createElement("div", null, "☕커피 · 🥛밀크 · 🥤시판 · 🥬건강음료 · 🍺술 → 공복 깨는 음료")),
+    style: { background: "#ffffffbb", border: `1.5px solid ${INK}`, borderRadius: 2, padding: "8px 10px", marginBottom: 10, fontSize: 10, color: INK }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 6, fontSize: 11 } }, "💧 수분 점수 — 전체의 10% + α"),
+    [["💧 물", "생수, 탄산수(무가당)", "수분 목표 ✓"], ["🍵 차", "녹차, 홍차, 허브티, 보리차", "수분 목표 ✓"], ["☕ 커피", "아메리카노, 라떼, 디카페인", "공복 깸"], ["🥛 음료", "우유, 두유, 아몬드밀크, 오트밀크", "공복 깸"], ["🥤 시판음료", "콜라, 주스, 스포츠음료, 에너지음료", "공복 깸"], ["🥬 건강음료", "라이블리 스무디, 단백질쉐이크 등", "공복 깸 · +3%"], ["🍺 술", "맥주, 와인, 소주, 막걸리 등", "공복 깸"]].map(([lbl, desc, effect]) => /*#__PURE__*/React.createElement("div", { key: lbl, style: { display: "flex", gap: 4, marginBottom: 3, alignItems: "flex-start" } },
+      /*#__PURE__*/React.createElement("span", { style: { minWidth: 58, fontWeight: 700, flexShrink: 0 } }, lbl),
+      /*#__PURE__*/React.createElement("span", { style: { flex: 1, color: "#5B5580", lineHeight: 1.5 } }, desc),
+      /*#__PURE__*/React.createElement("span", { style: { color: "#8a80a0", fontWeight: 700, fontSize: 9, flexShrink: 0, marginLeft: 4 } }, effect)))),
   type === "hydration" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 6, marginBottom: 10 }
