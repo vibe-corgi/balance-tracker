@@ -3356,6 +3356,7 @@ function StatsView({ goals }) {
   const [ws, setWs] = React.useState(() => wkStart(todayStr()));
   const [stats, setStats] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
+  const [sec, setSec] = React.useState("all");
   const days = Array.from({length:7},(_,i) => addDays(ws,i));
   const wkLabel = (() => { const s=new Date(ws+"T00:00:00"),e=new Date(days[6]+"T00:00:00"); return `${s.getMonth()+1}월 ${s.getDate()}일 ~ ${e.getMonth()+1}월 ${e.getDate()}일`; })();
   React.useEffect(() => {
@@ -3462,18 +3463,30 @@ function StatsView({ goals }) {
       line3!=null?/*#__PURE__*/React.createElement("div",{style:{fontSize:10}},line3):null
     );
   }
+  // Section data-cell backgrounds (subtle tints)
+  const SDB = {water:"#eff8ff",fast:"#fff9ef",sleep:"#effffa",ex:"#fff4f6",med:"#f6f2ff",rest:"#edfcff",meal:"#fffaef"};
+  // Filter rows by selected section; in "all" mode return all
+  function SR(k,...fns) { if(sec!=="all"&&sec!==k)return []; return fns.map(f=>f()); }
+  // Thin divider row between sections
+  function Div(c) { if(sec!=="all")return null; return /*#__PURE__*/React.createElement("tr",{key:"div"+c},/*#__PURE__*/React.createElement("td",{colSpan:9,style:{height:3,background:c,padding:0}})); }
+  // Cell with section tint
+  function dc(secKey) { return {...cs,background:SDB[secKey]}; }
   const d7 = stats||Array(7).fill(null);
   if (busy) return /*#__PURE__*/React.createElement("div",{style:{padding:40,textAlign:"center",color:"#8a80a0",fontSize:13}},"불러오는 중…");
   const fG = goals?.fastingGoalHours??12;
   const slG = goals?.sleepGoalMinH??6;
+  const SECS = [{k:"all",l:"전체"},{k:"water",l:"💧수분"},{k:"fast",l:"⏰공복"},{k:"sleep",l:"😴수면"},{k:"ex",l:"🏃운동"},{k:"med",l:"🧘명상"},{k:"rest",l:"😌휴식"},{k:"meal",l:"🍽️식사"}];
   return /*#__PURE__*/React.createElement("div",{style:{paddingBottom:80}},
-    /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f0eeff",borderBottom:`2px solid ${INK}`,marginBottom:4}},
+    /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f0eeff",borderBottom:`2px solid ${INK}`}},
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,-7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"◀"),
       /*#__PURE__*/React.createElement("div",{style:{textAlign:"center"}},
         /*#__PURE__*/React.createElement("div",{style:{fontWeight:800,fontSize:13,color:INK}},wkLabel),
         /*#__PURE__*/React.createElement("div",{style:{fontSize:10,color:"#8a80a0",marginTop:2}},"주간 통계")
       ),
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"▶")
+    ),
+    /*#__PURE__*/React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:4,padding:"8px 12px",background:"#f8f6ff",borderBottom:"1px solid #ddd8f0"}},
+      ...SECS.map(s=>/*#__PURE__*/React.createElement("button",{key:s.k,onClick:()=>setSec(s.k),style:{padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer",borderRadius:12,border:`1.5px solid ${sec===s.k?INK:"#c8c0e8"}`,background:sec===s.k?INK:"transparent",color:sec===s.k?"#fff":"#5B5580"}},s.l))
     ),
     /*#__PURE__*/React.createElement("div",{style:{overflowX:"auto"}},
       /*#__PURE__*/React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",minWidth:680}},
@@ -3485,60 +3498,73 @@ function StatsView({ goals }) {
           )
         ),
         /*#__PURE__*/React.createElement("tbody",null,
-          // ── 수분 ──
-          Row("💧 수분 (물+차)", L(SC.water[0]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.hydrMl>0?(s.hydrOk?G(fmtL(s.hydrMl)):R(fmtL(s.hydrMl))):Dim)),
-            tot?S2(`달성 ${fmtL(tot.hydr)}`,`목표 ${fmtL((goals?.hydrationGoalL??1.5)*1000)}/일 × 7`,G(`✓ ${tot.hydrDays}일`) ):""
+          ...SR("water",
+            ()=>Row("💧 수분 (물+차)", L(SC.water[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.hydrMl>0?(s.hydrOk?G(fmtL(s.hydrMl)):R(fmtL(s.hydrMl))):Dim)),
+              tot?S2(`달성 ${fmtL(tot.hydr)}`,`목표 ${fmtL((goals?.hydrationGoalL??1.5)*1000)}/일 × 7`,G(`✓ ${tot.hydrDays}일`)):""
+            ),
+            ()=>Row("└ 💧 물",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.wMl>0?fmtL(s.wMl):Dim)),tot?`총 ${fmtL(tot.water)}`:""),
+            ()=>Row("└ 🍵 차",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.tMl>0?fmtL(s.tMl):Dim)),tot?`총 ${fmtL(tot.tea)}`:""),
+            ()=>Row("└ ☕ 커피",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.coffN>0?s.coffN+"회":Dim)),tot?`총 ${tot.coff}회`:""),
+            ()=>Row("└ 🥛 음료",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.milkN>0?s.milkN+"회":Dim)),tot?`총 ${tot.milk}회`:""),
+            ()=>Row("└ 🥤 시판음료",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.commN>0?s.commN+"회":Dim)),tot?`총 ${tot.comm}회`:""),
+            ()=>Row("└ 🌿 건강음료",SL(SC.water[1]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.healthN>0?(s.healthOk?G(s.healthN+"잔"):s.healthN+"잔"):Dim)),
+              tot?S2(`총 ${tot.health}잔`,`목표 ${goals?.healthDrinkGoal??1}잔/일`,G(`✓ ${tot.healthDays}일`)):""
+            ),
+            ()=>Row("└ 🍺 술",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("water")},s?.alcN>0?R(s.alcN+"회"):Dim)),tot?`총 ${tot.alc}회`:""),
           ),
-          Row("└ 💧 물",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.wMl>0?fmtL(s.wMl):Dim)),tot?`총 ${fmtL(tot.water)}`:""),
-          Row("└ 🍵 차",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.tMl>0?fmtL(s.tMl):Dim)),tot?`총 ${fmtL(tot.tea)}`:""),
-          Row("└ ☕ 커피",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.coffN>0?s.coffN+"회":Dim)),tot?`총 ${tot.coff}회`:""),
-          Row("└ 🥛 음료",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.milkN>0?s.milkN+"회":Dim)),tot?`총 ${tot.milk}회`:""),
-          Row("└ 🥤 시판음료",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.commN>0?s.commN+"회":Dim)),tot?`총 ${tot.comm}회`:""),
-          Row("└ 🌿 건강음료",SL(SC.water[1]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.healthN>0?(s.healthOk?G(s.healthN+"잔"):s.healthN+"잔"):Dim)),
-            tot?S2(`총 ${tot.health}잔`,`목표 ${goals?.healthDrinkGoal??1}잔/일`,G(`✓ ${tot.healthDays}일`)):""
+          Div(SC.fast[0]),
+          ...SR("fast",
+            ()=>Row("⏰ 공복",L(SC.fast[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("fast")},s?.fastH!=null?(s.fastOk?G(s.fastH.toFixed(1)+"h"):R(s.fastH.toFixed(1)+"h")):Dim)),
+              tot?.fastAvg!=null?S2(`평균 ${tot.fastAvg.toFixed(1)}h`,`목표 ≥${fG}h`,G(`✓ ${tot.fastDays}일 / 7일`)):""
+            ),
           ),
-          Row("└ 🍺 술",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.alcN>0?R(s.alcN+"회"):Dim)),tot?`총 ${tot.alc}회`:""),
-          // ── 공복 ──
-          Row("⏰ 공복",L(SC.fast[0]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fastH!=null?(s.fastOk?G(s.fastH.toFixed(1)+"h"):R(s.fastH.toFixed(1)+"h")):Dim)),
-            tot?.fastAvg!=null?S2(`평균 ${tot.fastAvg.toFixed(1)}h`,`목표 ≥${fG}h`,G(`✓ ${tot.fastDays}일 / 7일`)):""
+          Div(SC.sleep[0]),
+          ...SR("sleep",
+            ()=>Row("😴 수면",L(SC.sleep[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("sleep")},s?.sleepM>0?(s.sleepOk?G(fmtDur(s.sleepM)):R(fmtDur(s.sleepM))):Dim)),
+              tot?.sleepAvg?S2(`평균 ${fmtDur(Math.round(tot.sleepAvg))}`,`목표 ≥${slG}h`,G(`✓ ${tot.sleepDays}일 / 7일`)):""
+            ),
           ),
-          // ── 수면 ──
-          Row("😴 수면",L(SC.sleep[0]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.sleepM>0?(s.sleepOk?G(fmtDur(s.sleepM)):R(fmtDur(s.sleepM))):Dim)),
-            tot?.sleepAvg?S2(`평균 ${fmtDur(Math.round(tot.sleepAvg))}`,`목표 ≥${slG}h`,G(`✓ ${tot.sleepDays}일 / 7일`)):""
+          Div(SC.ex[0]),
+          ...SR("ex",
+            ()=>Row("🏃 운동",L(SC.ex[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("ex")},s?.exM>0?fmtDur(s.exM):Dim)),
+              tot?S2(`총 ${tot.exN}회`,fmtDur(tot.exM)||"기록 없음"):""
+            ),
+            ...["달리기","산책","요가","스트레칭","근력운동"].map(t=>()=>Row(`└ ${t}`,SL(SC.ex[1]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("ex"),fontSize:10}},s?.exT[t]>0?G("✓"):Dim)),
+              tot?`총 ${tot.exT[t]}회`:""
+            )),
           ),
-          // ── 운동 ──
-          Row("🏃 운동",L(SC.ex[0]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.exM>0?fmtDur(s.exM):Dim)),
-            tot?S2(`총 ${tot.exN}회`,fmtDur(tot.exM)||"기록 없음"):""
+          Div(SC.med[0]),
+          ...SR("med",
+            ()=>Row("🧘 명상",L(SC.med[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("med")},s?.medM>0?fmtDur(s.medM):Dim)),
+              tot?S2(`총 ${tot.medN}회`,fmtDur(tot.medM)||"기록 없음"):""
+            ),
+            ()=>Row("└ 🧘 결가부좌",SL(SC.med[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("med"),fontSize:10}},s?.lotusN>0?G("✓"):Dim)),tot?`총 ${tot.lotus}회`:""),
+            ()=>Row("└ 🔔 진언/만트라",SL(SC.med[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("med"),fontSize:10}},s?.mantraN>0?G("✓"):Dim)),tot?`총 ${tot.mantra}회`:""),
           ),
-          ...["달리기","산책","요가","스트레칭","근력운동"].map(t=>Row(`└ ${t}`,SL(SC.ex[1]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.exT[t]>0?G("✓"):Dim)),
-            tot?`총 ${tot.exT[t]}회`:""
-          )),
-          // ── 명상 ──
-          Row("🧘 명상",L(SC.med[0]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.medM>0?fmtDur(s.medM):Dim)),
-            tot?S2(`총 ${tot.medN}회`,fmtDur(tot.medM)||"기록 없음"):""
+          Div(SC.rest[0]),
+          ...SR("rest",
+            ()=>Row("😌 휴식",L(SC.rest[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("rest")},s?.rstM>0?fmtDur(s.rstM):Dim)),
+              tot?S2(`총 ${tot.rstN}회`,fmtDur(tot.rstM)||"기록 없음"):""
+            ),
+            ()=>Row("└ 😴 수면(낮잠)",SL(SC.rest[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("rest"),fontSize:10}},s?.napN>0?G("✓"):Dim)),tot?`${tot.nap}회`:""),
+            ()=>Row("└ 🌀 멍때리기",SL(SC.rest[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("rest"),fontSize:10}},s?.zoneN>0?G("✓"):Dim)),tot?`${tot.zone}회`:""),
           ),
-          Row("└ 🧘 결가부좌",SL(SC.med[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.lotusN>0?G("✓"):Dim)),tot?`총 ${tot.lotus}회`:""),
-          Row("└ 🔔 진언/만트라",SL(SC.med[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.mantraN>0?G("✓"):Dim)),tot?`총 ${tot.mantra}회`:""),
-          // ── 휴식 ──
-          Row("😌 휴식",L(SC.rest[0]),
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.rstM>0?fmtDur(s.rstM):Dim)),
-            tot?S2(`총 ${tot.rstN}회`,fmtDur(tot.rstM)||"기록 없음"):""
-          ),
-          Row("└ 😴 수면(낮잠)",SL(SC.rest[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.napN>0?G("✓"):Dim)),tot?`${tot.nap}회`:""),
-          Row("└ 🌀 멍때리기",SL(SC.rest[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.zoneN>0?G("✓"):Dim)),tot?`${tot.zone}회`:""),
-          // ── 식사 ──
-          Row("🥗 식사 클린",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["클린"]>0?G(s.fc["클린"]+"회"):Dim)),tot?S2(`총 ${tot.fc["클린"]}회`,"클린 식사 횟수"):""),
-          Row("🍚 식사 보통",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["보통"]>0?s.fc["보통"]+"회":Dim)),tot?`총 ${tot.fc["보통"]}회`:""),
-          Row("🍟 식사 정크",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["정크"]>0?R(s.fc["정크"]+"회"):Dim)),tot?`총 ${tot.fc["정크"]}회`:""),
-          Row("🍔 식사 폭식",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["폭식"]>0?R(s.fc["폭식"]+"회"):Dim)),tot?`총 ${tot.fc["폭식"]}회`:""),
-          Row("🍪 간식",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.snackN>0?s.snackN+"회":Dim)),tot?`총 ${tot.snack}회`:"")
+          Div(SC.meal[0]),
+          ...SR("meal",
+            ()=>Row("🥗 식사 클린",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("meal")},s?.fc["클린"]>0?G(s.fc["클린"]+"회"):Dim)),tot?S2(`총 ${tot.fc["클린"]}회`,"클린 식사 횟수"):""),
+            ()=>Row("🍚 식사 보통",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("meal")},s?.fc["보통"]>0?s.fc["보통"]+"회":Dim)),tot?`총 ${tot.fc["보통"]}회`:""),
+            ()=>Row("🍟 식사 정크",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("meal")},s?.fc["정크"]>0?R(s.fc["정크"]+"회"):Dim)),tot?`총 ${tot.fc["정크"]}회`:""),
+            ()=>Row("🍔 식사 폭식",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("meal")},s?.fc["폭식"]>0?R(s.fc["폭식"]+"회"):Dim)),tot?`총 ${tot.fc["폭식"]}회`:""),
+            ()=>Row("🍪 간식",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("meal")},s?.snackN>0?s.snackN+"회":Dim)),tot?`총 ${tot.snack}회`:""),
+          )
         )
       )
     )
