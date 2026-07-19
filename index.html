@@ -1477,6 +1477,7 @@ function QuickLogRow({
   fastingHint
 }) {
   const [open, setOpen] = useState(null);
+  const [infoOpen, setInfoOpen] = useState(null);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -1497,26 +1498,35 @@ function QuickLogRow({
     }
   }, Object.entries(EVENT_TYPES).map(([key, def]) => {
     const Icon = def.icon;
-    return /*#__PURE__*/React.createElement("button", {
+    const hasInfo = key === "meal" || key === "hydration";
+    if (!hasInfo) return /*#__PURE__*/React.createElement("button", {
       key: key,
       onClick: () => setOpen(key),
-      style: {
-        ...quickBtn,
-        background: def.bg
-      }
-    }, /*#__PURE__*/React.createElement(Icon, {
-      size: 16,
-      color: def.color,
-      strokeWidth: 2
-    }), /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        color: INK,
-        marginTop: 4,
-        fontWeight: 700
-      }
-    }, def.label));
-  })), open && /*#__PURE__*/React.createElement(QuickLogForm, {
+      style: { ...quickBtn, background: def.bg }
+    }, /*#__PURE__*/React.createElement(Icon, { size: 16, color: def.color, strokeWidth: 2 }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, color: INK, marginTop: 4, fontWeight: 700 } }, def.label));
+    return /*#__PURE__*/React.createElement("div", { key: key, style: { position: "relative" } },
+      /*#__PURE__*/React.createElement("button", {
+        onClick: () => { setOpen(key); setInfoOpen(null); },
+        style: { ...quickBtn, background: def.bg, width: "100%" }
+      }, /*#__PURE__*/React.createElement(Icon, { size: 16, color: def.color, strokeWidth: 2 }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, color: INK, marginTop: 4, fontWeight: 700 } }, def.label)),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: e => { e.stopPropagation(); setInfoOpen(infoOpen === key ? null : key); },
+        style: { position: "absolute", top: 3, right: 4, background: "none", border: "none", padding: 0, fontSize: 11, color: "#8a80a0", cursor: "pointer", lineHeight: 1, zIndex: 1 }
+      }, "ⓘ")
+    );
+  })), infoOpen === "meal" && /*#__PURE__*/React.createElement("div", {
+    style: { background: "#ffffffcc", border: `2px solid ${INK}`, borderRadius: 2, padding: "10px 12px", marginTop: 8, fontSize: 10.5, color: INK, lineHeight: 1.6 }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 5, fontSize: 11 } }, "🍽️ 식사 점수 — 전체의 15%"),
+    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "품질 70%: 🥗클린 100 / 🍚보통 70 / 🍟정크 30 / 🍔폭식 0"),
+    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "공복감 25%: 😋많이 100 / 🙂적당히 70 / 😐그냥 40 / 😮‍💨안배고픔 0"),
+    /*#__PURE__*/React.createElement("div", {}, "식사준비 5%: 🍽️잘 차렸음 100 / 🥡대충 때움 0")),
+  infoOpen === "hydration" && /*#__PURE__*/React.createElement("div", {
+    style: { background: "#ffffffcc", border: `2px solid ${INK}`, borderRadius: 2, padding: "10px 12px", marginTop: 8, fontSize: 10.5, color: INK, lineHeight: 1.6 }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 5, fontSize: 11 } }, "💧 수분 점수 — 전체의 10% + α"),
+    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "💧물 · 🍵차 → 수분 목표량에 포함 (기본 1.5L)"),
+    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "🥬건강음료 → 별도 목표 달성 시 +3%"),
+    /*#__PURE__*/React.createElement("div", {}, "☕커피 · 🥛밀크 · 🥤시판 · 🥬건강음료 · 🍺술 → 공복 깨는 음료")),
+  open && /*#__PURE__*/React.createElement(QuickLogForm, {
     type: open,
     onCancel: () => setOpen(null),
     fastingHint: open === "meal" ? fastingHint : null,
@@ -2743,9 +2753,10 @@ function TodayView({
     await persist(updated);
   };
   const score = computeDayScore(entry, prevEntry, goals);
-  const prevMealsSorted = prevEntry ? prevEntry.events.filter(e => e.type === "meal").map(e => e.time).sort() : [];
-  const prevLastMealTime = prevMealsSorted.length ? prevMealsSorted[prevMealsSorted.length - 1] : null;
-  const isFirstMealToday = entry.events.filter(e => e.type === "meal").length === 0;
+  const isFBEvent = e => e.type === "meal" || (e.type === "hydration" && (e.hydType === "coffee" || e.hydType === "milk" || e.hydType === "commercial" || e.hydType === "health" || e.hydType === "alcohol"));
+  const prevFBSorted = prevEntry ? prevEntry.events.filter(isFBEvent).map(e => e.time).sort() : [];
+  const prevLastMealTime = prevFBSorted.length ? prevFBSorted[prevFBSorted.length - 1] : null;
+  const isFirstMealToday = entry.events.filter(isFBEvent).length === 0;
   const wakeMin = entry.morning?.wakeTime ? toMin(entry.morning.wakeTime) : null;
   const sortKey = e => {
     if (e.type === "bed") return 1e9;
