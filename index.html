@@ -3371,6 +3371,28 @@ function StatsView({ goals }) {
   const [stats, setStats] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [sec, setSec] = React.useState("all");
+  const [periodCycle, setPeriodCycle] = React.useState(null);
+  React.useEffect(() => {
+    const today = todayStr();
+    const dates = Array.from({length: 120}, (_, i) => addDays(today, -i));
+    Promise.all(dates.map(d => loadEntry(d))).then(entries => {
+      const sorted = dates.map((d, i) => [d, !!(entries[i]?.morning?.period)]).reverse();
+      const starts = [];
+      let prev = false;
+      sorted.forEach(([d, has]) => { if (has && !prev) starts.push(d); prev = has; });
+      if (starts.length >= 2) {
+        const gaps = [];
+        for (let i = 1; i < starts.length; i++) {
+          const a = new Date(starts[i-1]+"T00:00:00"), b = new Date(starts[i]+"T00:00:00");
+          gaps.push(Math.round((b-a)/86400000));
+        }
+        const avg = Math.round(gaps.reduce((a,g)=>a+g,0)/gaps.length);
+        setPeriodCycle({ avg, count: starts.length });
+      } else {
+        setPeriodCycle({ avg: null, count: starts.length });
+      }
+    });
+  }, []);
   const days = Array.from({length:7},(_,i) => addDays(ws,i));
   const wkLabel = (() => { const s=new Date(ws+"T00:00:00"),e=new Date(days[6]+"T00:00:00"); return `${s.getMonth()+1}월 ${s.getDate()}일 ~ ${e.getMonth()+1}월 ${e.getDate()}일`; })();
   React.useEffect(() => {
@@ -3540,7 +3562,14 @@ function StatsView({ goals }) {
             ),
             ()=>Row("🩸 생리",L(SC.routine[0]),
               d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.period?/*#__PURE__*/React.createElement("span",{style:{color:"#E74C8B",fontWeight:700}},"🩸"):Dim)),
-              tot?`총 ${tot.period}일`:""
+              tot?/*#__PURE__*/React.createElement(React.Fragment,null,
+                /*#__PURE__*/React.createElement("div",{style:{fontWeight:700}},`이번 주 ${tot.period}일`),
+                periodCycle?.avg!=null
+                  ?/*#__PURE__*/React.createElement("div",{style:{color:"#7B5EA7",fontWeight:700,fontSize:10}},`평균 주기 약 ${periodCycle.avg}일 (${periodCycle.count}회 기록)`)
+                  :periodCycle?.count===1
+                    ?/*#__PURE__*/React.createElement("div",{style:{color:"#888",fontSize:10}},"주기 집계 중 (1회 기록)")
+                    :/*#__PURE__*/React.createElement("div",{style:{color:"#aaa",fontSize:10}},"데이터 부족")
+              ):""
             ),
           ),
           Div(SC.water[0]),
