@@ -3427,25 +3427,47 @@ function StatsView({ goals }) {
       fc:["클린","보통","정크","폭식"].reduce((a,f)=>{a[f]=S(d=>d.fc[f]);return a;},{})
     };
   }, [stats]);
-  const TH = "#5B5580";
-  const cs = {padding:"3px 6px",textAlign:"center",fontSize:11,borderBottom:"1px solid #e0ddf0",whiteSpace:"nowrap"};
-  const ls = {padding:"4px 8px",fontSize:11,fontWeight:700,color:INK,whiteSpace:"nowrap",position:"sticky",left:0,background:"#f0eef8",borderBottom:"1px solid #e0ddf0",borderRight:"1px solid #c8c0e8",zIndex:1};
-  const sl = {...ls,fontWeight:500,color:TH,paddingLeft:18,fontSize:10.5};
-  const ss = {...cs,fontWeight:700,background:"#f0eef8",borderLeft:"2px solid #8a80a0",textAlign:"left",padding:"3px 10px",minWidth:160};
-  const G = v => /*#__PURE__*/React.createElement("span",{style:{color:"#20A060",fontWeight:700}},v);
-  const R = v => /*#__PURE__*/React.createElement("span",{style:{color:"#c0392b",fontWeight:700}},v);
+  // Section colors [main, sub]
+  const SC = {
+    water: ["#b8d8f8","#d4eafc"],
+    fast:  ["#ffd090","#ffd090"],
+    sleep: ["#9fe8b4","#9fe8b4"],
+    ex:    ["#f8b0c0","#fcccd8"],
+    med:   ["#c8b4f0","#ddd0f8"],
+    rest:  ["#80d8ec","#b0e8f4"],
+    meal:  ["#f8c888","#f8c888"],
+  };
+  const border = "1px solid #d8d0ec";
+  const cs = {padding:"3px 6px",textAlign:"center",fontSize:11,borderBottom:border,whiteSpace:"nowrap"};
+  function L(bg)  { return {padding:"4px 8px",fontSize:11,fontWeight:700,color:INK,whiteSpace:"nowrap",background:bg,borderBottom:border,borderRight:"1px solid #b8b0d8"}; }
+  function SL(bg) { return {padding:"3px 8px 3px 18px",fontSize:10.5,fontWeight:500,color:"#3a3060",whiteSpace:"nowrap",background:bg,borderBottom:border,borderRight:"1px solid #b8b0d8"}; }
+  const ss = {padding:"5px 10px",fontSize:10.5,borderBottom:border,borderLeft:"2px solid #8a80a0",minWidth:150,verticalAlign:"top",lineHeight:1.7};
+  const thStyle = {padding:"5px 6px",fontWeight:800,background:"#e0daf4",borderBottom:"2px solid #9080c0",fontSize:11,textAlign:"center",whiteSpace:"nowrap"};
+  const G = v => /*#__PURE__*/React.createElement("span",{style:{color:"#1a8040",fontWeight:700}},v);
+  const R = v => /*#__PURE__*/React.createElement("span",{style:{color:"#b02020",fontWeight:700}},v);
   const Dim = /*#__PURE__*/React.createElement("span",{style:{color:"#c0b8e0"}},"·");
+  // Row builder
   function Row(label,lStyle,cells,summary) {
     return /*#__PURE__*/React.createElement("tr",null,
-      /*#__PURE__*/React.createElement("td",{style:lStyle??ls},label),
+      /*#__PURE__*/React.createElement("td",{style:lStyle},label),
       ...cells,
       /*#__PURE__*/React.createElement("td",{style:ss},summary??"")
     );
   }
+  // Multi-line summary helper
+  function S2(line1,line2,line3) {
+    return /*#__PURE__*/React.createElement(React.Fragment,null,
+      line1!=null?/*#__PURE__*/React.createElement("div",{style:{fontWeight:700}},line1):null,
+      line2!=null?/*#__PURE__*/React.createElement("div",{style:{color:"#5B5580",fontSize:10}},line2):null,
+      line3!=null?/*#__PURE__*/React.createElement("div",{style:{fontSize:10}},line3):null
+    );
+  }
   const d7 = stats||Array(7).fill(null);
   if (busy) return /*#__PURE__*/React.createElement("div",{style:{padding:40,textAlign:"center",color:"#8a80a0",fontSize:13}},"불러오는 중…");
+  const fG = goals?.fastingGoalHours??12;
+  const slG = goals?.sleepGoalMinH??6;
   return /*#__PURE__*/React.createElement("div",{style:{paddingBottom:80}},
-    /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f7f5ff",borderBottom:`2px solid ${INK}`,marginBottom:8}},
+    /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f0eeff",borderBottom:`2px solid ${INK}`,marginBottom:4}},
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,-7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"◀"),
       /*#__PURE__*/React.createElement("div",{style:{textAlign:"center"}},
         /*#__PURE__*/React.createElement("div",{style:{fontWeight:800,fontSize:13,color:INK}},wkLabel),
@@ -3454,99 +3476,69 @@ function StatsView({ goals }) {
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"▶")
     ),
     /*#__PURE__*/React.createElement("div",{style:{overflowX:"auto"}},
-      /*#__PURE__*/React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",minWidth:700}},
+      /*#__PURE__*/React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",minWidth:680}},
         /*#__PURE__*/React.createElement("thead",null,
           /*#__PURE__*/React.createElement("tr",null,
-            /*#__PURE__*/React.createElement("th",{style:{...ls,background:"#e8e4f4",fontSize:11,fontWeight:800}},"항목"),
-            ...days.map((d,i)=>{const dt=new Date(d+"T00:00:00");return /*#__PURE__*/React.createElement("th",{key:i,style:{...cs,fontWeight:800,background:"#e8e4f4",color:i>=5?"#6D7BD9":INK}},/*#__PURE__*/React.createElement("div",null,DAY_NAMES[i]),/*#__PURE__*/React.createElement("div",{style:{fontSize:9,color:"#8a80a0"}},`${dt.getMonth()+1}/${dt.getDate()}`));}),
-            /*#__PURE__*/React.createElement("th",{style:{...ss,fontWeight:800,background:"#e8e4f4"}},"주간 합계")
+            /*#__PURE__*/React.createElement("th",{style:{...thStyle,textAlign:"left",minWidth:110}},"항목"),
+            ...days.map((d,i)=>{const dt=new Date(d+"T00:00:00");return /*#__PURE__*/React.createElement("th",{key:i,style:{...thStyle,color:i>=5?"#5050c0":INK}},/*#__PURE__*/React.createElement("div",null,DAY_NAMES[i]),/*#__PURE__*/React.createElement("div",{style:{fontSize:9,fontWeight:600,color:"#7060a0"}},`${dt.getMonth()+1}/${dt.getDate()}`));}),
+            /*#__PURE__*/React.createElement("th",{style:{...thStyle,textAlign:"left",borderLeft:"2px solid #9080c0",minWidth:150}},"주간 합계")
           )
         ),
         /*#__PURE__*/React.createElement("tbody",null,
-          Row("💧 수분 (물+차)",{...ls,background:"#e8f4ff"},
+          // ── 수분 ──
+          Row("💧 수분 (물+차)", L(SC.water[0]),
             d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.hydrMl>0?(s.hydrOk?G(fmtL(s.hydrMl)):R(fmtL(s.hydrMl))):Dim)),
-            tot?`총 ${fmtL(tot.hydr)} / 목표 ${fmtL(tot.hGW)} (${tot.hydrDays}일 달성)`:""
+            tot?S2(`달성 ${fmtL(tot.hydr)}`,`목표 ${fmtL((goals?.hydrationGoalL??1.5)*1000)}/일 × 7`,G(`✓ ${tot.hydrDays}일`) ):""
           ),
-          Row("└ 💧 물",{...sl,background:"#f0faff"},
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.wMl>0?fmtL(s.wMl):Dim)),
-            tot?`총 ${fmtL(tot.water)}`:""
+          Row("└ 💧 물",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.wMl>0?fmtL(s.wMl):Dim)),tot?`총 ${fmtL(tot.water)}`:""),
+          Row("└ 🍵 차",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.tMl>0?fmtL(s.tMl):Dim)),tot?`총 ${fmtL(tot.tea)}`:""),
+          Row("└ ☕ 커피",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.coffN>0?s.coffN+"회":Dim)),tot?`총 ${tot.coff}회`:""),
+          Row("└ 🥛 음료",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.milkN>0?s.milkN+"회":Dim)),tot?`총 ${tot.milk}회`:""),
+          Row("└ 🥤 시판음료",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.commN>0?s.commN+"회":Dim)),tot?`총 ${tot.comm}회`:""),
+          Row("└ 🌿 건강음료",SL(SC.water[1]),
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.healthN>0?(s.healthOk?G(s.healthN+"잔"):s.healthN+"잔"):Dim)),
+            tot?S2(`총 ${tot.health}잔`,`목표 ${goals?.healthDrinkGoal??1}잔/일`,G(`✓ ${tot.healthDays}일`)):""
           ),
-          Row("└ 🍵 차",{...sl,background:"#f0faff"},
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.tMl>0?fmtL(s.tMl):Dim)),
-            tot?`총 ${fmtL(tot.tea)}`:""
-          ),
-          Row("└ ☕ 커피",{...sl,background:"#f0faff"},
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.coffN>0?s.coffN+"회":Dim)),
-            tot?`${tot.coff}회`:""
-          ),
-          Row("└ 🥛 음료",{...sl,background:"#f0faff"},
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.milkN>0?s.milkN+"회":Dim)),
-            tot?`${tot.milk}회`:""
-          ),
-          Row("└ 🥤 시판음료",{...sl,background:"#f0faff"},
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.commN>0?s.commN+"회":Dim)),
-            tot?`${tot.comm}회`:""
-          ),
-          Row("└ 🌿 건강음료",{...sl,background:"#f0faff"},
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.healthN>0?(s.healthOk?G(s.healthN+"잔"):s.healthN+"잔"):Dim)),
-            tot?`총 ${tot.health}잔 (${tot.healthDays}일 달성)`:""
-          ),
-          Row("└ 🍺 술",{...sl,background:"#f0faff"},
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.alcN>0?R(s.alcN+"회"):Dim)),
-            tot?`${tot.alc}회`:""
-          ),
-          Row("⏰ 공복",null,
+          Row("└ 🍺 술",SL(SC.water[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.alcN>0?R(s.alcN+"회"):Dim)),tot?`총 ${tot.alc}회`:""),
+          // ── 공복 ──
+          Row("⏰ 공복",L(SC.fast[0]),
             d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fastH!=null?(s.fastOk?G(s.fastH.toFixed(1)+"h"):R(s.fastH.toFixed(1)+"h")):Dim)),
-            tot?.fastAvg!=null?`평균 ${tot.fastAvg.toFixed(1)}h (${tot.fastDays}일 달성)`:""
+            tot?.fastAvg!=null?S2(`평균 ${tot.fastAvg.toFixed(1)}h`,`목표 ≥${fG}h`,G(`✓ ${tot.fastDays}일 / 7일`)):""
           ),
-          Row("😴 수면",null,
+          // ── 수면 ──
+          Row("😴 수면",L(SC.sleep[0]),
             d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.sleepM>0?(s.sleepOk?G(fmtDur(s.sleepM)):R(fmtDur(s.sleepM))):Dim)),
-            tot?.sleepAvg?`평균 ${fmtDur(Math.round(tot.sleepAvg))} (${tot.sleepDays}일 달성)`:""
+            tot?.sleepAvg?S2(`평균 ${fmtDur(Math.round(tot.sleepAvg))}`,`목표 ≥${slG}h`,G(`✓ ${tot.sleepDays}일 / 7일`)):""
           ),
-          Row("🏃 운동",null,
+          // ── 운동 ──
+          Row("🏃 운동",L(SC.ex[0]),
             d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.exM>0?fmtDur(s.exM):Dim)),
-            tot?`${tot.exN}회 / ${fmtDur(tot.exM)||"-"}`:""
+            tot?S2(`총 ${tot.exN}회`,fmtDur(tot.exM)||"기록 없음"):""
           ),
-          ...["달리기","산책","요가","스트레칭","근력운동"].map(t=>Row(`└ ${t}`,sl,
+          ...["달리기","산책","요가","스트레칭","근력운동"].map(t=>Row(`└ ${t}`,SL(SC.ex[1]),
             d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.exT[t]>0?G("✓"):Dim)),
-            tot?`${tot.exT[t]}회`:""
+            tot?`총 ${tot.exT[t]}회`:""
           )),
-          Row("🧘 명상",null,
+          // ── 명상 ──
+          Row("🧘 명상",L(SC.med[0]),
             d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.medM>0?fmtDur(s.medM):Dim)),
-            tot?`${tot.medN}회 / ${fmtDur(tot.medM)||"-"}`:""
+            tot?S2(`총 ${tot.medN}회`,fmtDur(tot.medM)||"기록 없음"):""
           ),
-          Row("└ 🧘 결가부좌",sl,
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.lotusN>0?G("✓"):Dim)),
-            tot?`${tot.lotus}회`:""
-          ),
-          Row("└ 🔔 진언/만트라",sl,
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.mantraN>0?G("✓"):Dim)),
-            tot?`${tot.mantra}회`:""
-          ),
-          Row("😌 휴식",null,
+          Row("└ 🧘 결가부좌",SL(SC.med[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.lotusN>0?G("✓"):Dim)),tot?`총 ${tot.lotus}회`:""),
+          Row("└ 🔔 진언/만트라",SL(SC.med[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.mantraN>0?G("✓"):Dim)),tot?`총 ${tot.mantra}회`:""),
+          // ── 휴식 ──
+          Row("😌 휴식",L(SC.rest[0]),
             d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.rstM>0?fmtDur(s.rstM):Dim)),
-            tot?`${tot.rstN}회 / ${fmtDur(tot.rstM)||"-"}`:""
+            tot?S2(`총 ${tot.rstN}회`,fmtDur(tot.rstM)||"기록 없음"):""
           ),
-          Row("└ 😴 수면(낮잠)",sl,
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.napN>0?G("✓"):Dim)),
-            tot?`${tot.nap}회`:""
-          ),
-          Row("└ 🌀 멍때리기",sl,
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.zoneN>0?G("✓"):Dim)),
-            tot?`${tot.zone}회`:""
-          ),
-          ...[["🥗","클린",true],["🍚","보통",null],["🍟","정크",false],["🍔","폭식",false]].map(([ico,feel,good])=>
-            Row(`${ico} 식사 ${feel}`,{...ls,background:good===true?"#f0fff4":good===false?"#fff5f5":undefined},
-              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},
-                s?.fc[feel]>0?(good===true?G(s.fc[feel]+"회"):good===false?R(s.fc[feel]+"회"):s.fc[feel]+"회"):Dim
-              )),
-              tot?`총 ${tot.fc[feel]}회`:""
-            )
-          ),
-          Row("🍪 간식",null,
-            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.snackN>0?s.snackN+"회":Dim)),
-            tot?`총 ${tot.snack}회`:""
-          )
+          Row("└ 😴 수면(낮잠)",SL(SC.rest[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.napN>0?G("✓"):Dim)),tot?`${tot.nap}회`:""),
+          Row("└ 🌀 멍때리기",SL(SC.rest[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.zoneN>0?G("✓"):Dim)),tot?`${tot.zone}회`:""),
+          // ── 식사 ──
+          Row("🥗 식사 클린",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["클린"]>0?G(s.fc["클린"]+"회"):Dim)),tot?S2(`총 ${tot.fc["클린"]}회`,"클린 식사 횟수"):""),
+          Row("🍚 식사 보통",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["보통"]>0?s.fc["보통"]+"회":Dim)),tot?`총 ${tot.fc["보통"]}회`:""),
+          Row("🍟 식사 정크",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["정크"]>0?R(s.fc["정크"]+"회"):Dim)),tot?`총 ${tot.fc["정크"]}회`:""),
+          Row("🍔 식사 폭식",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fc["폭식"]>0?R(s.fc["폭식"]+"회"):Dim)),tot?`총 ${tot.fc["폭식"]}회`:""),
+          Row("🍪 간식",L(SC.meal[0]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.snackN>0?s.snackN+"회":Dim)),tot?`총 ${tot.snack}회`:"")
         )
       )
     )
