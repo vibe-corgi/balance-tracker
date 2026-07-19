@@ -907,8 +907,8 @@ function ScoreCriteria() {
     { label: "저녁 컨디션", w: 5, desc: "컨디션 1~5단계 → 20/40/60/80/100점" },
     { label: "수면", w: 17, desc: "수면시간 점수 × 취침배율\n23시전×1.0 / 23시대×0.9 / 자정대×0.75 / 1시이후×0.6" },
     { label: "화장실", w: 5, desc: "쾌변감 평균 (아주편함100~아주불편10)" },
-    { label: "공복", w: 15, desc: "전날 마지막 식사/시판음료/건강음료\n→ 오늘 첫 식사/시판음료/건강음료\n목표 달성 시 100점" },
-    { label: "식사", w: 15, desc: "품질(클린100/보통65/정크35/폭식10)×0.6\n+ 공복감×0.4" },
+    { label: "공복", w: 15, desc: "전날 마지막 음식(식사·커피·밀크·시판·건강음료·술)\n→ 오늘 첫 음식 기준, 목표 달성 시 100점" },
+    { label: "식사", w: 15, desc: "품질 70%: 클린100/보통70/정크30/폭식0\n공복감 25%: 많이100/적당히70/그냥40/안배고픔0\n식사준비 5%: 잘차렸음100/대충때움0" },
     { label: "운동", w: 15, desc: "목표 시간 대비 달성률" },
     { label: "명상", w: 10, desc: "목표 시간 대비 달성률" },
     { label: "수분", w: 10, desc: "목표 수분량 대비 달성률" },
@@ -945,7 +945,7 @@ function ScoreInfo({
   const morningPt = entry.morning ? Math.round(entry.morning.level / 5 * 100) : null;
   const eveningPt = entry.evening ? Math.round(entry.evening.level / 5 * 100) : null;
   const fastPt = score.fastHours != null ? (score.fastHours >= fastGoalH ? 100 : Math.round(Math.min(100, score.fastHours / fastGoalH * 100))) : null;
-  const foodPt = (() => { const feels = entry.events.filter(e=>e.type==="meal"&&(e.feel||e.hunger)); if (!feels.length) return null; const fm={"클린":100,"보통":65,"정크":35,"폭식":10}; const hm={"🌟 배고팠음":100,"😐 그냥먹음":50,"😞 안배고픔":0}; return Math.round(feels.reduce((a,e)=>{ const q=e.feel?(fm[e.feel]??65):null; const hv=e.hunger?(hm[e.hunger]??null):null; if(q!=null&&hv!=null)return a+q*0.6+hv*0.4; if(q!=null)return a+q; if(hv!=null)return a+hv; return a+65; },0)/feels.length); })();
+  const foodPt = (() => { const feels = entry.events.filter(e=>e.type==="meal"&&(e.feel||e.hunger||e.mealPrep)); if (!feels.length) return null; const fm={"클린":100,"보통":70,"정크":30,"폭식":0}; const hm={"😋 많이 배고팠음":100,"🙂 적당히 배고팠음":70,"😐 그냥 먹음":40,"😮‍💨 안 배고팠음":0}; const pm={"🍽️ 잘 차렸음":100,"🥡 대충 때움":0}; return Math.round(feels.reduce((a,e)=>{ const q=e.feel?(fm[e.feel]??null):null; const hv=e.hunger?(hm[e.hunger]??null):null; const pv=e.mealPrep?(pm[e.mealPrep]??null):null; let t=0,w=0; if(q!=null){t+=q*70;w+=70;} if(hv!=null){t+=hv*25;w+=25;} if(pv!=null){t+=pv*5;w+=5;} return w>0?a+t/w:a; },0)/feels.length); })();
   const hydPt = score.hydrationMl > 0 ? (score.hydrationMl >= hydGoalMl ? 100 : Math.round(Math.min(100, score.hydrationMl / hydGoalMl * 100))) : null;
   const exPt = score.exMinutes > 0 ? (score.exMinutes >= exGoal ? 100 : Math.round(Math.min(100, score.exMinutes / exGoal * 100))) : null;
   const medPt = score.medMinutes > 0 ? (score.medMinutes >= medGoal ? 100 : Math.round(Math.min(100, score.medMinutes / medGoal * 100))) : null;
@@ -1477,7 +1477,6 @@ function QuickLogRow({
   fastingHint
 }) {
   const [open, setOpen] = useState(null);
-  const [infoOpen, setInfoOpen] = useState(null);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -1498,35 +1497,12 @@ function QuickLogRow({
     }
   }, Object.entries(EVENT_TYPES).map(([key, def]) => {
     const Icon = def.icon;
-    const hasInfo = key === "meal" || key === "hydration";
-    if (!hasInfo) return /*#__PURE__*/React.createElement("button", {
+    return /*#__PURE__*/React.createElement("button", {
       key: key,
       onClick: () => setOpen(key),
       style: { ...quickBtn, background: def.bg }
     }, /*#__PURE__*/React.createElement(Icon, { size: 16, color: def.color, strokeWidth: 2 }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, color: INK, marginTop: 4, fontWeight: 700 } }, def.label));
-    return /*#__PURE__*/React.createElement("div", { key: key, style: { position: "relative" } },
-      /*#__PURE__*/React.createElement("button", {
-        onClick: () => { setOpen(key); setInfoOpen(null); },
-        style: { ...quickBtn, background: def.bg, width: "100%" }
-      }, /*#__PURE__*/React.createElement(Icon, { size: 16, color: def.color, strokeWidth: 2 }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, color: INK, marginTop: 4, fontWeight: 700 } }, def.label)),
-      /*#__PURE__*/React.createElement("button", {
-        onClick: e => { e.stopPropagation(); setInfoOpen(infoOpen === key ? null : key); },
-        style: { position: "absolute", top: 3, right: 4, background: "none", border: "none", padding: 0, fontSize: 11, color: "#8a80a0", cursor: "pointer", lineHeight: 1, zIndex: 1 }
-      }, "ⓘ")
-    );
-  })), infoOpen === "meal" && /*#__PURE__*/React.createElement("div", {
-    style: { background: "#ffffffcc", border: `2px solid ${INK}`, borderRadius: 2, padding: "10px 12px", marginTop: 8, fontSize: 10.5, color: INK, lineHeight: 1.6 }
-  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 5, fontSize: 11 } }, "🍽️ 식사 점수 — 전체의 15%"),
-    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "품질 70%: 🥗클린 100 / 🍚보통 70 / 🍟정크 30 / 🍔폭식 0"),
-    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "공복감 25%: 😋많이 100 / 🙂적당히 70 / 😐그냥 40 / 😮‍💨안배고픔 0"),
-    /*#__PURE__*/React.createElement("div", {}, "식사준비 5%: 🍽️잘 차렸음 100 / 🥡대충 때움 0")),
-  infoOpen === "hydration" && /*#__PURE__*/React.createElement("div", {
-    style: { background: "#ffffffcc", border: `2px solid ${INK}`, borderRadius: 2, padding: "10px 12px", marginTop: 8, fontSize: 10.5, color: INK, lineHeight: 1.6 }
-  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 5, fontSize: 11 } }, "💧 수분 점수 — 전체의 10% + α"),
-    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "💧물 · 🍵차 → 수분 목표량에 포함 (기본 1.5L)"),
-    /*#__PURE__*/React.createElement("div", { style: { marginBottom: 2 } }, "🥬건강음료 → 별도 목표 달성 시 +3%"),
-    /*#__PURE__*/React.createElement("div", {}, "☕커피 · 🥛밀크 · 🥤시판 · 🥬건강음료 · 🍺술 → 공복 깨는 음료")),
-  open && /*#__PURE__*/React.createElement(QuickLogForm, {
+  })), open && /*#__PURE__*/React.createElement(QuickLogForm, {
     type: open,
     onCancel: () => setOpen(null),
     fastingHint: open === "meal" ? fastingHint : null,
@@ -1542,6 +1518,7 @@ function QuickLogForm({
   onSubmit,
   fastingHint
 }) {
+  const [infoOpen, setInfoOpen] = useState(false);
   const [time, setTime] = useState(nowHM());
   const [label, setLabel] = useState("");
   const [amountMl, setAmountMl] = useState(250);
@@ -1615,23 +1592,31 @@ function QuickLogForm({
       alignItems: "center",
       marginBottom: 10
     }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 13,
-      color: INK,
-      fontWeight: 800
-    }
-  }, def.label), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+    /*#__PURE__*/React.createElement("span", {
+      style: { fontSize: 13, color: INK, fontWeight: 800 }
+    }, def.label),
+    (type === "meal" || type === "hydration") && /*#__PURE__*/React.createElement("button", {
+      onClick: () => setInfoOpen(o => !o),
+      style: { background: "none", border: "none", padding: 0, fontSize: 13, color: infoOpen ? INK : "#8a80a0", cursor: "pointer", lineHeight: 1, fontWeight: 700 }
+    }, "ⓘ")
+  ), /*#__PURE__*/React.createElement("button", {
     onClick: onCancel,
-    style: {
-      background: "none",
-      border: "none",
-      cursor: "pointer"
-    }
-  }, /*#__PURE__*/React.createElement(X, {
-    size: 16,
-    color: INK
-  }))), type === "hydration" && /*#__PURE__*/React.createElement("div", null,
+    style: { background: "none", border: "none", cursor: "pointer" }
+  }, /*#__PURE__*/React.createElement(X, { size: 16, color: INK }))),
+  infoOpen && type === "meal" && /*#__PURE__*/React.createElement("div", {
+    style: { background: "#ffffffbb", border: `1.5px solid ${INK}`, borderRadius: 2, padding: "8px 10px", marginBottom: 10, fontSize: 10.5, color: INK, lineHeight: 1.7 }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 4, fontSize: 11 } }, "🍽️ 식사 점수 — 전체의 15%"),
+    /*#__PURE__*/React.createElement("div", null, "품질 70%: 🥗클린 100 / 🍚보통 70 / 🍟정크 30 / 🍔폭식 0"),
+    /*#__PURE__*/React.createElement("div", null, "공복감 25%: 😋많이 100 / 🙂적당히 70 / 😐그냥 40 / 😮‍💨안배고픔 0"),
+    /*#__PURE__*/React.createElement("div", null, "식사준비 5%: 🍽️잘 차렸음 100 / 🥡대충 때움 0")),
+  infoOpen && type === "hydration" && /*#__PURE__*/React.createElement("div", {
+    style: { background: "#ffffffbb", border: `1.5px solid ${INK}`, borderRadius: 2, padding: "8px 10px", marginBottom: 10, fontSize: 10.5, color: INK, lineHeight: 1.7 }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 800, marginBottom: 4, fontSize: 11 } }, "💧 수분 점수 — 전체의 10% + α"),
+    /*#__PURE__*/React.createElement("div", null, "💧물 · 🍵차 → 수분 목표량에 포함 (기본 1.5L)"),
+    /*#__PURE__*/React.createElement("div", null, "🥬건강음료 → 별도 목표 달성 시 +3%"),
+    /*#__PURE__*/React.createElement("div", null, "☕커피 · 🥛밀크 · 🥤시판 · 🥬건강음료 · 🍺술 → 공복 깨는 음료")),
+  type === "hydration" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 6, marginBottom: 10 }
   }, HYDRATION_TYPES.map(ht => /*#__PURE__*/React.createElement("button", {
