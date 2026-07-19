@@ -3440,8 +3440,8 @@ function StatsView({ goals }) {
   };
   const border = "1px solid #d8d0ec";
   const cs = {padding:"3px 6px",textAlign:"center",fontSize:11,borderBottom:border,whiteSpace:"nowrap"};
-  function L(bg)  { return {padding:"4px 8px",fontSize:11,fontWeight:700,color:INK,whiteSpace:"nowrap",background:bg,borderBottom:border,borderRight:"1px solid #b8b0d8"}; }
-  function SL(bg) { return {padding:"3px 8px 3px 18px",fontSize:10.5,fontWeight:500,color:"#3a3060",whiteSpace:"nowrap",background:bg,borderBottom:border,borderRight:"1px solid #b8b0d8"}; }
+  function L(bg)  { return {padding:"4px 8px",fontSize:11,fontWeight:700,color:INK,whiteSpace:"nowrap",background:bg,borderBottom:border,borderRight:"1px solid #b8b0d8",position:"sticky",left:0,zIndex:2}; }
+  function SL(bg) { return {padding:"3px 8px 3px 18px",fontSize:10.5,fontWeight:500,color:"#3a3060",whiteSpace:"nowrap",background:bg,borderBottom:border,borderRight:"1px solid #b8b0d8",position:"sticky",left:0,zIndex:2}; }
   const ss = {padding:"5px 10px",fontSize:10.5,borderBottom:border,borderLeft:"2px solid #8a80a0",minWidth:150,verticalAlign:"top",lineHeight:1.7};
   const thStyle = {padding:"5px 6px",fontWeight:800,background:"#e0daf4",borderBottom:"2px solid #9080c0",fontSize:11,textAlign:"center",whiteSpace:"nowrap"};
   const G = v => /*#__PURE__*/React.createElement("span",{style:{color:"#1a8040",fontWeight:700}},v);
@@ -3492,7 +3492,7 @@ function StatsView({ goals }) {
       /*#__PURE__*/React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",minWidth:680}},
         /*#__PURE__*/React.createElement("thead",null,
           /*#__PURE__*/React.createElement("tr",null,
-            /*#__PURE__*/React.createElement("th",{style:{...thStyle,textAlign:"left",minWidth:110}},"항목"),
+            /*#__PURE__*/React.createElement("th",{style:{...thStyle,textAlign:"left",minWidth:110,position:"sticky",left:0,zIndex:3}},"항목"),
             ...days.map((d,i)=>{const dt=new Date(d+"T00:00:00");return /*#__PURE__*/React.createElement("th",{key:i,style:{...thStyle,color:i>=5?"#5050c0":INK}},/*#__PURE__*/React.createElement("div",null,DAY_NAMES[i]),/*#__PURE__*/React.createElement("div",{style:{fontSize:9,fontWeight:600,color:"#7060a0"}},`${dt.getMonth()+1}/${dt.getDate()}`));}),
             /*#__PURE__*/React.createElement("th",{style:{...thStyle,textAlign:"left",borderLeft:"2px solid #9080c0",minWidth:150}},"주간 합계")
           )
@@ -4381,6 +4381,7 @@ function App() {
       bottom: 0,
       left: 0,
       right: 0,
+      zIndex: 100,
       background: "#ffffffee",
       backdropFilter: "blur(10px)",
       borderTop: `3px solid ${INK}`,
