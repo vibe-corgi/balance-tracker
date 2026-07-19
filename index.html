@@ -3344,6 +3344,210 @@ function groupByMonth(dates) {
   });
   return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
 }
+function StatsView({ goals }) {
+  const DAY_NAMES = ["월","화","수","목","금","토","일"];
+  function wkStart(ds) {
+    const d = new Date(ds + "T00:00:00"), dow = d.getDay();
+    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+    return todayStr(d);
+  }
+  function fmtL(ml) { return ml >= 1000 ? (ml/1000).toFixed(1)+"L" : ml+"ml"; }
+  function fmtDur(m) { if (!m) return null; const h=Math.floor(m/60),mn=m%60; return mn ? `${h}h${mn}m` : `${h}h`; }
+  const [ws, setWs] = React.useState(() => wkStart(todayStr()));
+  const [stats, setStats] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const days = Array.from({length:7},(_,i) => addDays(ws,i));
+  const wkLabel = (() => { const s=new Date(ws+"T00:00:00"),e=new Date(days[6]+"T00:00:00"); return `${s.getMonth()+1}월 ${s.getDate()}일 ~ ${e.getMonth()+1}월 ${e.getDate()}일`; })();
+  React.useEffect(() => {
+    setBusy(true); setStats(null);
+    const allKeys = [addDays(ws,-1), ...days];
+    Promise.all(allKeys.map(d => loadEntry(d))).then(res => {
+      const map = {}; allKeys.forEach((d,i) => { map[d] = res[i]; });
+      const ds = days.map((dk,i) => {
+        const entry = map[dk]; if (!entry) return null;
+        const sc = computeDayScore(entry, map[allKeys[i]], goals);
+        const ev = entry.events || [];
+        const hy = ev.filter(e => e.type==="hydration");
+        const wMl = hy.filter(e=>e.hydType==="water").reduce((a,e)=>a+(e.amount||0),0);
+        const tMl = hy.filter(e=>e.hydType==="tea").reduce((a,e)=>a+(e.amount||0),0);
+        const hG = (goals?.hydrGoalL??1.5)*1000;
+        const exEvs = ev.filter(e=>e.type==="exercise");
+        const exT = {}; ["달리기","산책","요가","스트레칭","근력운동"].forEach(t=>{exT[t]=0;});
+        exEvs.forEach(e=>(e.exTypes||[]).forEach(t=>{if(t in exT)exT[t]++;}));
+        const medEvs = ev.filter(e=>e.type==="meditation");
+        const rstEvs = ev.filter(e=>e.type==="rest");
+        const meals = ev.filter(e=>e.type==="meal");
+        const fc={클린:0,보통:0,정크:0,폭식:0};
+        meals.filter(e=>!e.snack&&e.feel).forEach(e=>{if(e.feel in fc)fc[e.feel]++;});
+        return {
+          wMl,tMl,hydrMl:wMl+tMl,hG,hydrOk:wMl+tMl>=hG,
+          coffN:hy.filter(e=>e.hydType==="coffee").length,
+          milkN:hy.filter(e=>e.hydType==="milk").length,
+          commN:hy.filter(e=>e.hydType==="commercial").length,
+          healthN:hy.filter(e=>e.hydType==="health").length,
+          healthOk:hy.filter(e=>e.hydType==="health").length>=(goals?.healthDrinkGoal??1),
+          alcN:hy.filter(e=>e.hydType==="alcohol").length,
+          fastH:sc.fastingHours, fastGoal:goals?.fastingGoalHours??14,
+          fastOk:sc.fastingHours!=null&&sc.fastingHours>=(goals?.fastingGoalHours??14),
+          sleepM:sc.sleepMinutes||0, sleepGoalM:(goals?.sleepGoalHours??7)*60,
+          sleepOk:(sc.sleepMinutes||0)>0&&(sc.sleepMinutes||0)>=(goals?.sleepGoalHours??7)*60,
+          exN:exEvs.length, exM:exEvs.reduce((a,e)=>a+(e.duration||0),0), exT,
+          medN:medEvs.length, medM:medEvs.reduce((a,e)=>a+(e.duration||0),0),
+          lotusN:medEvs.filter(e=>e.lotus).length, mantraN:medEvs.filter(e=>e.mantra).length,
+          rstN:rstEvs.length, rstM:rstEvs.reduce((a,e)=>a+(e.duration||0),0),
+          napN:rstEvs.filter(e=>e.nap).length, zoneN:rstEvs.filter(e=>e.zoneOut).length,
+          snackN:meals.filter(e=>e.snack).length, fc
+        };
+      });
+      setStats(ds); setBusy(false);
+    });
+  }, [ws]);
+  const tot = React.useMemo(() => {
+    if (!stats) return null;
+    const ds = stats.filter(Boolean);
+    const S = fn => ds.reduce((a,d)=>a+fn(d),0);
+    const Avg = fn => { const vs=ds.map(fn).filter(v=>v>0); return vs.length?vs.reduce((a,v)=>a+v,0)/vs.length:null; };
+    const C = fn => ds.filter(fn).length;
+    return {
+      hydr:S(d=>d.hydrMl), hGW:(goals?.hydrGoalL??1.5)*1000*7, hydrDays:C(d=>d.hydrOk),
+      water:S(d=>d.wMl), tea:S(d=>d.tMl),
+      coff:S(d=>d.coffN), milk:S(d=>d.milkN), comm:S(d=>d.commN),
+      health:S(d=>d.healthN), healthDays:C(d=>d.healthOk), alc:S(d=>d.alcN),
+      fastAvg:Avg(d=>d.fastH||0), fastDays:C(d=>d.fastOk),
+      sleepAvg:Avg(d=>d.sleepM), sleepDays:C(d=>d.sleepOk),
+      exN:S(d=>d.exN), exM:S(d=>d.exM),
+      exT:["달리기","산책","요가","스트레칭","근력운동"].reduce((a,t)=>{a[t]=S(d=>d.exT[t]);return a;},{}),
+      medN:S(d=>d.medN), medM:S(d=>d.medM), lotus:S(d=>d.lotusN), mantra:S(d=>d.mantraN),
+      rstN:S(d=>d.rstN), rstM:S(d=>d.rstM), nap:S(d=>d.napN), zone:S(d=>d.zoneN),
+      snack:S(d=>d.snackN),
+      fc:["클린","보통","정크","폭식"].reduce((a,f)=>{a[f]=S(d=>d.fc[f]);return a;},{})
+    };
+  }, [stats]);
+  const TH = "#5B5580";
+  const cs = {padding:"3px 6px",textAlign:"center",fontSize:11,borderBottom:"1px solid #e0ddf0",whiteSpace:"nowrap"};
+  const ls = {padding:"4px 8px",fontSize:11,fontWeight:700,color:INK,whiteSpace:"nowrap",position:"sticky",left:0,background:"#f0eef8",borderBottom:"1px solid #e0ddf0",borderRight:"1px solid #c8c0e8",zIndex:1};
+  const sl = {...ls,fontWeight:500,color:TH,paddingLeft:18,fontSize:10.5};
+  const ss = {...cs,fontWeight:700,background:"#f0eef8",borderLeft:"2px solid #8a80a0",textAlign:"left",padding:"3px 10px",minWidth:160};
+  const G = v => /*#__PURE__*/React.createElement("span",{style:{color:"#20A060",fontWeight:700}},v);
+  const R = v => /*#__PURE__*/React.createElement("span",{style:{color:"#c0392b",fontWeight:700}},v);
+  const Dim = /*#__PURE__*/React.createElement("span",{style:{color:"#c0b8e0"}},"·");
+  function Row(label,lStyle,cells,summary) {
+    return /*#__PURE__*/React.createElement("tr",null,
+      /*#__PURE__*/React.createElement("td",{style:lStyle??ls},label),
+      ...cells,
+      /*#__PURE__*/React.createElement("td",{style:ss},summary??"")
+    );
+  }
+  const d7 = stats||Array(7).fill(null);
+  if (busy) return /*#__PURE__*/React.createElement("div",{style:{padding:40,textAlign:"center",color:"#8a80a0",fontSize:13}},"불러오는 중…");
+  return /*#__PURE__*/React.createElement("div",{style:{paddingBottom:80}},
+    /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f7f5ff",borderBottom:`2px solid ${INK}`,position:"sticky",top:0,zIndex:10}},
+      /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,-7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"◀"),
+      /*#__PURE__*/React.createElement("div",{style:{textAlign:"center"}},
+        /*#__PURE__*/React.createElement("div",{style:{fontWeight:800,fontSize:13,color:INK}},wkLabel),
+        /*#__PURE__*/React.createElement("div",{style:{fontSize:10,color:"#8a80a0",marginTop:2}},"주간 통계")
+      ),
+      /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"▶")
+    ),
+    /*#__PURE__*/React.createElement("div",{style:{overflowX:"auto"}},
+      /*#__PURE__*/React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",minWidth:700}},
+        /*#__PURE__*/React.createElement("thead",null,
+          /*#__PURE__*/React.createElement("tr",null,
+            /*#__PURE__*/React.createElement("th",{style:{...ls,background:"#e8e4f4",fontSize:11,fontWeight:800}},"항목"),
+            ...days.map((d,i)=>{const dt=new Date(d+"T00:00:00");return /*#__PURE__*/React.createElement("th",{key:i,style:{...cs,fontWeight:800,background:"#e8e4f4",color:i>=5?"#6D7BD9":INK}},/*#__PURE__*/React.createElement("div",null,DAY_NAMES[i]),/*#__PURE__*/React.createElement("div",{style:{fontSize:9,color:"#8a80a0"}},`${dt.getMonth()+1}/${dt.getDate()}`));}),
+            /*#__PURE__*/React.createElement("th",{style:{...ss,fontWeight:800,background:"#e8e4f4"}},"주간 합계")
+          )
+        ),
+        /*#__PURE__*/React.createElement("tbody",null,
+          Row("💧 수분 (물+차)",{...ls,background:"#e8f4ff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.hydrMl>0?(s.hydrOk?G(fmtL(s.hydrMl)):R(fmtL(s.hydrMl))):Dim)),
+            tot?`총 ${fmtL(tot.hydr)} / 목표 ${fmtL(tot.hGW)} (${tot.hydrDays}일 달성)`:""
+          ),
+          Row("└ 💧 물",{...sl,background:"#f0faff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.wMl>0?fmtL(s.wMl):Dim)),
+            tot?`총 ${fmtL(tot.water)}`:""
+          ),
+          Row("└ 🍵 차",{...sl,background:"#f0faff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.tMl>0?fmtL(s.tMl):Dim)),
+            tot?`총 ${fmtL(tot.tea)}`:""
+          ),
+          Row("└ ☕ 커피",{...sl,background:"#f0faff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.coffN>0?s.coffN+"회":Dim)),
+            tot?`${tot.coff}회`:""
+          ),
+          Row("└ 🥛 음료",{...sl,background:"#f0faff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.milkN>0?s.milkN+"회":Dim)),
+            tot?`${tot.milk}회`:""
+          ),
+          Row("└ 🥤 시판음료",{...sl,background:"#f0faff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.commN>0?s.commN+"회":Dim)),
+            tot?`${tot.comm}회`:""
+          ),
+          Row("└ 🌿 건강음료",{...sl,background:"#f0faff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.healthN>0?(s.healthOk?G(s.healthN+"잔"):s.healthN+"잔"):Dim)),
+            tot?`총 ${tot.health}잔 (${tot.healthDays}일 달성)`:""
+          ),
+          Row("└ 🍺 술",{...sl,background:"#f0faff"},
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,background:"#f7fdff"}},s?.alcN>0?R(s.alcN+"회"):Dim)),
+            tot?`${tot.alc}회`:""
+          ),
+          Row("⏰ 공복",null,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.fastH!=null?(s.fastOk?G(s.fastH.toFixed(1)+"h"):R(s.fastH.toFixed(1)+"h")):Dim)),
+            tot?.fastAvg!=null?`평균 ${tot.fastAvg.toFixed(1)}h (${tot.fastDays}일 달성)`:""
+          ),
+          Row("😴 수면",null,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.sleepM>0?(s.sleepOk?G(fmtDur(s.sleepM)):R(fmtDur(s.sleepM))):Dim)),
+            tot?.sleepAvg?`평균 ${fmtDur(Math.round(tot.sleepAvg))} (${tot.sleepDays}일 달성)`:""
+          ),
+          Row("🏃 운동",null,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.exM>0?fmtDur(s.exM):Dim)),
+            tot?`${tot.exN}회 / ${fmtDur(tot.exM)||"-"}`:""
+          ),
+          ...["달리기","산책","요가","스트레칭","근력운동"].map(t=>Row(`└ ${t}`,sl,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.exT[t]>0?G("✓"):Dim)),
+            tot?`${tot.exT[t]}회`:""
+          )),
+          Row("🧘 명상",null,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.medM>0?fmtDur(s.medM):Dim)),
+            tot?`${tot.medN}회 / ${fmtDur(tot.medM)||"-"}`:""
+          ),
+          Row("└ 🧘 결가부좌",sl,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.lotusN>0?G("✓"):Dim)),
+            tot?`${tot.lotus}회`:""
+          ),
+          Row("└ 🔔 진언/만트라",sl,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.mantraN>0?G("✓"):Dim)),
+            tot?`${tot.mantra}회`:""
+          ),
+          Row("😌 휴식",null,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.rstM>0?fmtDur(s.rstM):Dim)),
+            tot?`${tot.rstN}회 / ${fmtDur(tot.rstM)||"-"}`:""
+          ),
+          Row("└ 😴 수면(낮잠)",sl,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.napN>0?G("✓"):Dim)),
+            tot?`${tot.nap}회`:""
+          ),
+          Row("└ 🌀 멍때리기",sl,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...cs,fontSize:10}},s?.zoneN>0?G("✓"):Dim)),
+            tot?`${tot.zone}회`:""
+          ),
+          ...[["🥗","클린",true],["🍚","보통",null],["🍟","정크",false],["🍔","폭식",false]].map(([ico,feel,good])=>
+            Row(`${ico} 식사 ${feel}`,{...ls,background:good===true?"#f0fff4":good===false?"#fff5f5":undefined},
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},
+                s?.fc[feel]>0?(good===true?G(s.fc[feel]+"회"):good===false?R(s.fc[feel]+"회"):s.fc[feel]+"회"):Dim
+              )),
+              tot?`총 ${tot.fc[feel]}회`:""
+            )
+          ),
+          Row("🍪 간식",null,
+            d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:cs},s?.snackN>0?s.snackN+"회":Dim)),
+            tot?`총 ${tot.snack}회`:""
+          )
+        )
+      )
+    )
+  );
+}
 function ArchiveView() {
   const [dates, setDates] = useState([]);
   const [openDate, setOpenDate] = useState(null);
@@ -4142,6 +4346,8 @@ function App() {
     onSaveGoals: onSaveGoals
   }) : tab === "flow" ? /*#__PURE__*/React.createElement(FlowView, {
     goals: goals
+  }) : tab === "stats" ? /*#__PURE__*/React.createElement(StatsView, {
+    goals: goals
   }) : /*#__PURE__*/React.createElement(ArchiveView, null) : /*#__PURE__*/React.createElement("div", {
     style: {
       color: "#8a80a0",
@@ -4172,6 +4378,9 @@ function App() {
   }, {
     key: "flow",
     label: "흐름"
+  }, {
+    key: "stats",
+    label: "통계"
   }, {
     key: "archive",
     label: "기록보관함"
