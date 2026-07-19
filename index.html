@@ -486,9 +486,10 @@ const HYDRATION_TYPES = [
   { key: "water", icon: null, comp: HydIconWater, label: "물" },
   { key: "tea", icon: "🍵", label: "차" },
   { key: "coffee", icon: "☕", label: "커피" },
+  { key: "milk", icon: "🥛", label: "밀크" },
   { key: "commercial", icon: null, comp: HydIconFrap, label: "시판음료" },
   { key: "health", icon: "🥝", label: "건강음료" },
-  { key: "other", icon: "💧", label: "기타" }
+  { key: "alcohol", icon: "🍺", label: "술" }
 ];
 const EVENT_TYPES = {
   meal: {
@@ -717,7 +718,7 @@ function computeDayScore(entry, prevEntry, goals) {
   }
 
   const meals = entry.events.filter(e => e.type === "meal").map(e => e.time).sort();
-  const isFastBreaker = e => e.type === "meal" || (e.type === "hydration" && (e.hydType === "commercial" || e.hydType === "health" || e.hydType === "other"));
+  const isFastBreaker = e => e.type === "meal" || (e.type === "hydration" && (e.hydType === "coffee" || e.hydType === "milk" || e.hydType === "commercial" || e.hydType === "health" || e.hydType === "alcohol"));
   const fastBreakers = entry.events.filter(isFastBreaker).map(e => e.time).sort();
   const prevFastBreakers = prevEntry ? prevEntry.events.filter(isFastBreaker).map(e => e.time).sort() : [];
   let fastHours = null;
@@ -731,17 +732,20 @@ function computeDayScore(entry, prevEntry, goals) {
     parts.push({ key: "fasting", v: fastHours >= goalH ? 100 : Math.min(100, fastHours / goalH * 100), w: 15 });
   }
 
-  const mealFeels = entry.events.filter(e => e.type === "meal" && (e.feel || e.hunger));
+  const mealFeels = entry.events.filter(e => e.type === "meal" && (e.feel || e.hunger || e.mealPrep));
   if (mealFeels.length) {
-    const feelMap = { "클린": 100, "보통": 65, "정크": 35, "폭식": 10 };
-    const hungerMap = { "🌟 배고팠음": 100, "😐 그냥먹음": 50, "😞 안배고픔": 0 };
+    const feelMap = { "클린": 100, "보통": 70, "정크": 30, "폭식": 0 };
+    const hungerMap = { "😋 많이 배고팠음": 100, "🙂 적당히 배고팠음": 70, "😐 그냥 먹음": 40, "😮‍💨 안 배고팠음": 0 };
+    const prepMap = { "🍽️ 잘 차렸음": 100, "🥡 대충 때움": 0 };
     const foodScore = mealFeels.reduce((a, e) => {
-      const q = e.feel ? (feelMap[e.feel] ?? 65) : null;
+      const q = e.feel ? (feelMap[e.feel] ?? null) : null;
       const hv = e.hunger ? (hungerMap[e.hunger] ?? null) : null;
-      if (q != null && hv != null) return a + q * 0.6 + hv * 0.4;
-      if (q != null) return a + q;
-      if (hv != null) return a + hv;
-      return a + 65;
+      const pv = e.mealPrep ? (prepMap[e.mealPrep] ?? null) : null;
+      let total = 0, wt = 0;
+      if (q != null) { total += q * 70; wt += 70; }
+      if (hv != null) { total += hv * 25; wt += 25; }
+      if (pv != null) { total += pv * 5; wt += 5; }
+      return wt > 0 ? a + total / wt : a;
     }, 0) / mealFeels.length;
     parts.push({ key: "food", v: foodScore, w: 15 });
   }
@@ -1537,6 +1541,7 @@ function QuickLogForm({
   const [feel, setFeel] = useState(null);
   const [mealFeel, setMealFeel] = useState(null);
   const [mealHunger, setMealHunger] = useState(null);
+  const [mealPrep, setMealPrep] = useState(null);
   const [lotus, setLotus] = useState(false);
   const [nap, setNap] = useState(false);
   const [zoneOut, setZoneOut] = useState(false);
@@ -1567,6 +1572,7 @@ function QuickLogForm({
       label,
       feel: mealFeel,
       hunger: mealHunger,
+      mealPrep,
       snack,
     });else if (type === "hydration") onSubmit({
       time,
@@ -1639,7 +1645,7 @@ function QuickLogForm({
     style: { display: "flex", gap: 6, alignItems: "center" }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", value: label, onChange: e => setLabel(e.target.value),
-    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : "재료 (선택)",
+    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "milk" ? "종류 (두유, 귀리 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : hydType === "alcohol" ? "종류 (맥주, 와인 등)" : "재료 (선택)",
     style: { ...inputStyle, flex: 2, minWidth: 0 }
   }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }
@@ -1708,9 +1714,23 @@ function QuickLogForm({
       color: mealFeel === f ? "#fff" : INK,
       cursor: "pointer"
     }
-  }, f))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "배가 고팠나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 10 } }, ["🌟 배고팠음", "😐 그냥먹음", "😞 안배고픔"].map(h => /*#__PURE__*/React.createElement("button", {
+  }, f))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "배가 고팠나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 } }, ["😋 많이 배고팠음", "🙂 적당히 배고팠음", "😐 그냥 먹음", "😮‍💨 안 배고팠음"].map(h => /*#__PURE__*/React.createElement("button", {
     key: h,
     onClick: () => setMealHunger(h),
+    style: {
+      flexBasis: "calc(50% - 3px)",
+      padding: "7px 0",
+      border: `2px solid ${INK}`,
+      borderRadius: 2,
+      fontSize: 10,
+      fontWeight: 700,
+      background: mealHunger === h ? INK : "#ffffffaa",
+      color: mealHunger === h ? "#fff" : INK,
+      cursor: "pointer"
+    }
+  }, h))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "어떻게 먹었나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 10 } }, ["🍽️ 잘 차렸음", "🥡 대충 때움"].map(p => /*#__PURE__*/React.createElement("button", {
+    key: p,
+    onClick: () => setMealPrep(mealPrep === p ? null : p),
     style: {
       flex: 1,
       padding: "8px 0",
@@ -1718,11 +1738,11 @@ function QuickLogForm({
       borderRadius: 2,
       fontSize: 11,
       fontWeight: 700,
-      background: mealHunger === h ? INK : "#ffffffaa",
-      color: mealHunger === h ? "#fff" : INK,
+      background: mealPrep === p ? INK : "#ffffffaa",
+      color: mealPrep === p ? "#fff" : INK,
       cursor: "pointer"
     }
-  }, h)))), type === "meal" && /*#__PURE__*/React.createElement("label", {
+  }, p)))), type === "meal" && /*#__PURE__*/React.createElement("label", {
     style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 10, color: INK, fontWeight: 600 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox", checked: snack, onChange: e => setSnack(e.target.checked)
@@ -2082,6 +2102,7 @@ function EventEditForm({
   const [memo, setMemo] = useState(ev.memo || "");
   const [feel, setFeel] = useState(ev.feel || null);
   const [mealHunger, setMealHunger] = useState(ev.hunger || null);
+  const [mealPrep, setMealPrep] = useState(ev.mealPrep || null);
   const [lotus, setLotus] = useState(ev.lotus || false);
   const [nap, setNap] = useState(ev.nap || false);
   const [zoneOut, setZoneOut] = useState(ev.zoneOut || false);
@@ -2111,6 +2132,7 @@ function EventEditForm({
       label,
       feel,
       hunger: mealHunger,
+      mealPrep,
       snack,
     });else if (ev.type === "hydration") onSave({
       time,
@@ -2196,9 +2218,23 @@ function EventEditForm({
       color: feel === f ? "#fff" : INK,
       cursor: "pointer"
     }
-  }, f))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "배가 고팠나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 8 } }, ["🌟 배고팠음", "😐 그냥먹음", "😞 안배고픔"].map(hv => /*#__PURE__*/React.createElement("button", {
+  }, f))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "배가 고팠나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 } }, ["😋 많이 배고팠음", "🙂 적당히 배고팠음", "😐 그냥 먹음", "😮‍💨 안 배고팠음"].map(hv => /*#__PURE__*/React.createElement("button", {
     key: hv,
     onClick: () => setMealHunger(hv),
+    style: {
+      flexBasis: "calc(50% - 3px)",
+      padding: "7px 0",
+      border: `2px solid ${INK}`,
+      borderRadius: 2,
+      fontSize: 10,
+      fontWeight: 700,
+      background: mealHunger === hv ? INK : "#ffffffaa",
+      color: mealHunger === hv ? "#fff" : INK,
+      cursor: "pointer"
+    }
+  }, hv))), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "어떻게 먹었나요?"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 10 } }, ["🍽️ 잘 차렸음", "🥡 대충 때움"].map(p => /*#__PURE__*/React.createElement("button", {
+    key: p,
+    onClick: () => setMealPrep(mealPrep === p ? null : p),
     style: {
       flex: 1,
       padding: "7px 0",
@@ -2206,11 +2242,11 @@ function EventEditForm({
       borderRadius: 2,
       fontSize: 11,
       fontWeight: 700,
-      background: mealHunger === hv ? INK : "#ffffffaa",
-      color: mealHunger === hv ? "#fff" : INK,
+      background: mealPrep === p ? INK : "#ffffffaa",
+      color: mealPrep === p ? "#fff" : INK,
       cursor: "pointer"
     }
-  }, hv))), /*#__PURE__*/React.createElement("label", {
+  }, p))), /*#__PURE__*/React.createElement("label", {
     style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 8, color: INK, fontWeight: 600 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox", checked: snack, onChange: e => setSnack(e.target.checked)
@@ -2238,7 +2274,7 @@ function EventEditForm({
     style: { display: "flex", gap: 6, alignItems: "center" }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", value: label, onChange: e => setLabel(e.target.value),
-    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : "재료 (선택)",
+    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "milk" ? "종류 (두유, 귀리 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : hydType === "alcohol" ? "종류 (맥주, 와인 등)" : "재료 (선택)",
     style: { ...inputStyle, flex: 2, minWidth: 0 }
   }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }
@@ -3182,7 +3218,7 @@ function FlowView({
     const eveningLv = loaded?.entry?.evening?.level;
     const morningOn = morningLv != null;
     const eveningOn = eveningLv != null;
-    const mealFeels = loaded?.entry?.events?.filter(e => e.type === "meal" && (e.feel || e.hunger)) || [];
+    const mealFeels = loaded?.entry?.events?.filter(e => e.type === "meal" && (e.feel || e.hunger || e.mealPrep)) || [];
     const foodOn = mealFeels.length > 0;
     const feelLabels = mealFeels.map(e => e.feel).filter(Boolean);
     const foodText = feelLabels.length > 0 ? feelLabels.slice(0, 4).join(' · ') : `${mealFeels.length}회`;
