@@ -3486,9 +3486,9 @@ function StatsView({ goals }) {
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"▶")
     ),
     /*#__PURE__*/React.createElement("div",{style:{display:"flex",justifyContent:"space-around",padding:"6px 8px",background:"#f8f6ff",borderBottom:"1px solid #ddd8f0"}},
-      ...SECS.map(s=>/*#__PURE__*/React.createElement("button",{key:s.k,onClick:()=>setSec(s.k),style:{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"5px 6px",cursor:"pointer",borderRadius:10,border:`1.5px solid ${sec===s.k?INK:"#c8c0e8"}`,background:sec===s.k?INK:"transparent",color:sec===s.k?"#fff":"#5B5580",minWidth:34}},
-        /*#__PURE__*/React.createElement("span",{style:{fontSize:16,lineHeight:1}},s.ic),
-        /*#__PURE__*/React.createElement("span",{style:{fontSize:9,fontWeight:700,lineHeight:1}},s.l)
+      ...SECS.map(s=>/*#__PURE__*/React.createElement("button",{key:s.k,onClick:()=>setSec(s.k),style:{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 5px 5px",cursor:"pointer",borderRadius:10,border:`1.5px solid ${sec===s.k?INK:"#c8c0e8"}`,background:sec===s.k?INK:"transparent",color:sec===s.k?"#fff":"#5B5580",minWidth:34}},
+        /*#__PURE__*/React.createElement("span",{style:{fontSize:15,lineHeight:"1.1"}},s.ic),
+        /*#__PURE__*/React.createElement("span",{style:{fontSize:9,fontWeight:700,lineHeight:"1.1",display:"block"}},s.l)
       ))
     ),
     /*#__PURE__*/React.createElement("div",{style:{overflowX:"auto"}},
