@@ -3530,13 +3530,13 @@ function StatsView({ goals }) {
               d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.morningRoutine?G("✓"):Dim)),
               tot?S2(`${tot.morningRoutine}일 달성`,`목표 7일`,tot.morningRoutine>=7?G("✓ 완벽"):tot.morningRoutine>0?`${tot.morningRoutine}/7`:""):""
             ),
-            ()=>Row("🚿 찬물샤워",L(SC.routine[0]),
-              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.coldShower?G("✓"):Dim)),
-              tot?S2(`${tot.coldShower}일 달성`,`목표 7일`,tot.coldShower>=7?G("✓ 완벽"):tot.coldShower>0?`${tot.coldShower}/7`:""):""
-            ),
             ()=>Row("📵 저녁 디톡스",L(SC.routine[0]),
               d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.eveningRoutine?G("✓"):Dim)),
               tot?S2(`${tot.eveningRoutine}일 달성`,`목표 7일`,tot.eveningRoutine>=7?G("✓ 완벽"):tot.eveningRoutine>0?`${tot.eveningRoutine}/7`:""):""
+            ),
+            ()=>Row("🚿 찬물샤워",L(SC.routine[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.coldShower?G("✓"):Dim)),
+              tot?S2(`${tot.coldShower}일 달성`,`목표 7일`,tot.coldShower>=7?G("✓ 완벽"):tot.coldShower>0?`${tot.coldShower}/7`:""):""
             ),
             ()=>Row("🩸 생리",L(SC.routine[0]),
               d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.period?/*#__PURE__*/React.createElement("span",{style:{color:"#E74C8B",fontWeight:700}},"🩸"):Dim)),
