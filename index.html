@@ -3365,12 +3365,13 @@ function StatsView({ goals }) {
       const map = {}; allKeys.forEach((d,i) => { map[d] = res[i]; });
       const ds = days.map((dk,i) => {
         const entry = map[dk]; if (!entry) return null;
-        const sc = computeDayScore(entry, map[allKeys[i]], goals);
+        const sc = computeDayScore(entry, map[allKeys[i]], goals) || {};
         const ev = entry.events || [];
         const hy = ev.filter(e => e.type==="hydration");
         const wMl = hy.filter(e=>e.hydType==="water").reduce((a,e)=>a+(Number(e.amountMl)||0),0);
         const tMl = hy.filter(e=>e.hydType==="tea").reduce((a,e)=>a+(Number(e.amountMl)||0),0);
-        const hG = (goals?.hydrGoalL??1.5)*1000;
+        const hG = (goals?.hydrationGoalL??1.5)*1000;
+        const healthCups = hy.filter(e=>e.hydType==="health").reduce((a,e)=>a+(Number(e.cups)||1),0);
         const exEvs = ev.filter(e=>e.type==="exercise");
         const exT = {}; ["달리기","산책","요가","스트레칭","근력운동"].forEach(t=>{exT[t]=0;});
         exEvs.forEach(e=>(e.exTypes||[]).forEach(t=>{if(t in exT)exT[t]++;}));
@@ -3379,18 +3380,21 @@ function StatsView({ goals }) {
         const meals = ev.filter(e=>e.type==="meal");
         const fc={클린:0,보통:0,정크:0,폭식:0};
         meals.filter(e=>!e.snack&&e.feel).forEach(e=>{if(e.feel in fc)fc[e.feel]++;});
+        const sleepM = sc.sleepHours != null ? Math.round(sc.sleepHours*60) : 0;
+        const sleepGoalM = (goals?.sleepGoalMinH??6)*60;
+        const fastGoal = goals?.fastingGoalHours??12;
         return {
           wMl,tMl,hydrMl:wMl+tMl,hG,hydrOk:wMl+tMl>=hG,
           coffN:hy.filter(e=>e.hydType==="coffee").length,
           milkN:hy.filter(e=>e.hydType==="milk").length,
           commN:hy.filter(e=>e.hydType==="commercial").length,
-          healthN:hy.filter(e=>e.hydType==="health").length,
-          healthOk:hy.filter(e=>e.hydType==="health").length>=(goals?.healthDrinkGoal??1),
+          healthN:healthCups,
+          healthOk:healthCups>=(goals?.healthDrinkGoal??1),
           alcN:hy.filter(e=>e.hydType==="alcohol").length,
-          fastH:sc.fastingHours, fastGoal:goals?.fastingGoalHours??14,
-          fastOk:sc.fastingHours!=null&&sc.fastingHours>=(goals?.fastingGoalHours??14),
-          sleepM:sc.sleepMinutes||0, sleepGoalM:(goals?.sleepGoalHours??7)*60,
-          sleepOk:(sc.sleepMinutes||0)>0&&(sc.sleepMinutes||0)>=(goals?.sleepGoalHours??7)*60,
+          fastH:sc.fastHours??null, fastGoal,
+          fastOk:sc.fastHours!=null&&sc.fastHours>=fastGoal,
+          sleepM, sleepGoalM,
+          sleepOk:sleepM>0&&sleepM>=sleepGoalM,
           exN:exEvs.length, exM:exEvs.reduce((a,e)=>a+(e.duration||0),0), exT,
           medN:medEvs.length, medM:medEvs.reduce((a,e)=>a+(e.duration||0),0),
           lotusN:medEvs.filter(e=>e.lotus).length, mantraN:medEvs.filter(e=>e.mantra).length,
@@ -3409,7 +3413,7 @@ function StatsView({ goals }) {
     const Avg = fn => { const vs=ds.map(fn).filter(v=>v>0); return vs.length?vs.reduce((a,v)=>a+v,0)/vs.length:null; };
     const C = fn => ds.filter(fn).length;
     return {
-      hydr:S(d=>d.hydrMl), hGW:(goals?.hydrGoalL??1.5)*1000*7, hydrDays:C(d=>d.hydrOk),
+      hydr:S(d=>d.hydrMl), hGW:(goals?.hydrationGoalL??1.5)*1000*7, hydrDays:C(d=>d.hydrOk),
       water:S(d=>d.wMl), tea:S(d=>d.tMl),
       coff:S(d=>d.coffN), milk:S(d=>d.milkN), comm:S(d=>d.commN),
       health:S(d=>d.healthN), healthDays:C(d=>d.healthOk), alc:S(d=>d.alcN),
