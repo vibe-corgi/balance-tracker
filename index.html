@@ -3475,7 +3475,7 @@ function StatsView({ goals }) {
   if (busy) return /*#__PURE__*/React.createElement("div",{style:{padding:40,textAlign:"center",color:"#8a80a0",fontSize:13}},"불러오는 중…");
   const fG = goals?.fastingGoalHours??12;
   const slG = goals?.sleepGoalMinH??6;
-  const SECS = [{k:"all",l:"전체"},{k:"water",l:"💧수분"},{k:"fast",l:"⏰공복"},{k:"sleep",l:"😴수면"},{k:"ex",l:"🏃운동"},{k:"med",l:"🧘명상"},{k:"rest",l:"😌휴식"},{k:"meal",l:"🍽️식사"}];
+  const SECS = [{k:"all",ic:"☰",l:"전체"},{k:"water",ic:"💧",l:"수분"},{k:"fast",ic:"⏰",l:"공복"},{k:"sleep",ic:"😴",l:"수면"},{k:"ex",ic:"🏃",l:"운동"},{k:"med",ic:"🧘",l:"명상"},{k:"rest",ic:"😌",l:"휴식"},{k:"meal",ic:"🍽️",l:"식사"}];
   return /*#__PURE__*/React.createElement("div",{style:{paddingBottom:80}},
     /*#__PURE__*/React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:"#f0eeff",borderBottom:`2px solid ${INK}`}},
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,-7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"◀"),
@@ -3485,8 +3485,11 @@ function StatsView({ goals }) {
       ),
       /*#__PURE__*/React.createElement("button",{onClick:()=>setWs(addDays(ws,7)),style:{background:"none",border:`1.5px solid ${INK}`,borderRadius:2,padding:"4px 12px",cursor:"pointer",fontWeight:800,fontSize:14,color:INK}},"▶")
     ),
-    /*#__PURE__*/React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:4,padding:"8px 12px",background:"#f8f6ff",borderBottom:"1px solid #ddd8f0"}},
-      ...SECS.map(s=>/*#__PURE__*/React.createElement("button",{key:s.k,onClick:()=>setSec(s.k),style:{padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer",borderRadius:12,border:`1.5px solid ${sec===s.k?INK:"#c8c0e8"}`,background:sec===s.k?INK:"transparent",color:sec===s.k?"#fff":"#5B5580"}},s.l))
+    /*#__PURE__*/React.createElement("div",{style:{display:"flex",justifyContent:"space-around",padding:"6px 8px",background:"#f8f6ff",borderBottom:"1px solid #ddd8f0"}},
+      ...SECS.map(s=>/*#__PURE__*/React.createElement("button",{key:s.k,onClick:()=>setSec(s.k),style:{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"5px 6px",cursor:"pointer",borderRadius:10,border:`1.5px solid ${sec===s.k?INK:"#c8c0e8"}`,background:sec===s.k?INK:"transparent",color:sec===s.k?"#fff":"#5B5580",minWidth:34}},
+        /*#__PURE__*/React.createElement("span",{style:{fontSize:16,lineHeight:1}},s.ic),
+        /*#__PURE__*/React.createElement("span",{style:{fontSize:9,fontWeight:700,lineHeight:1}},s.l)
+      ))
     ),
     /*#__PURE__*/React.createElement("div",{style:{overflowX:"auto"}},
       /*#__PURE__*/React.createElement("table",{style:{borderCollapse:"collapse",width:"100%",minWidth:680}},
