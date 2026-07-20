@@ -3488,49 +3488,96 @@ function StatsView({ goals }) {
       };
       // Insights
       const hasData = scored.filter(x=>x.e).length;
-      const insights = [];
+      const morningIns = [], eveningIns = [], bathroomIns = [];
       if (hasData >= 14) {
-        // Sleep → morning condition
+        const nextMornLv = (arr) => arr.map(x => { const idx = scored.indexOf(x); return idx < scored.length-1 ? scored[idx+1].e?.morning?.level ?? null : null; }).filter(v=>v!=null);
+        const avgArr = arr => arr.reduce((a,v)=>a+v,0)/arr.length;
+        // ── 아침 컨디션 인사이트 (전날 데이터 기준) ──
         const withSleep = scored.filter(x => x.sc?.sleepHours != null && x.e?.morning?.level != null);
         const gSleep = withSleep.filter(x => x.sc.sleepHours*60 >= sGoalM);
         const pSleep = withSleep.filter(x => x.sc.sleepHours*60 < sGoalM);
         if (gSleep.length >= 3 && pSleep.length >= 3) {
           const avg = arr => arr.reduce((a,x)=>a+(x.e.morning.level),0)/arr.length;
           const gA = avg(gSleep), pA = avg(pSleep);
-          if (gA > pA+0.3) insights.push(`💤 수면 목표를 지킨 날 아침 컨디션 ${gA.toFixed(1)}점, 부족한 날 ${pA.toFixed(1)}점`);
+          if (gA > pA+0.3) morningIns.push(`💤 수면 목표를 지킨 날 아침 컨디션 ${gA.toFixed(1)}점, 부족한 날 ${pA.toFixed(1)}점`);
         }
-        // Exercise → next-day morning condition
-        const nextMornLv = (arr) => arr.map(x => { const idx = scored.indexOf(x); return idx < scored.length-1 ? scored[idx+1].e?.morning?.level ?? null : null; }).filter(v=>v!=null);
         const exDays = scored.filter((x,i)=>i<scored.length-1 && x.e && (x.e.events||[]).some(ev=>ev.type==="exercise"));
         const noExDays = scored.filter((x,i)=>i<scored.length-1 && x.e && !(x.e.events||[]).some(ev=>ev.type==="exercise"));
         const exNext = nextMornLv(exDays), noExNext = nextMornLv(noExDays);
         if (exNext.length >= 3 && noExNext.length >= 3) {
-          const avgEx = exNext.reduce((a,v)=>a+v,0)/exNext.length;
-          const avgNoEx = noExNext.reduce((a,v)=>a+v,0)/noExNext.length;
-          const diff = avgEx - avgNoEx;
-          if (Math.abs(diff) >= 0.2) insights.push(`🏃 운동한 날 다음 날 아침 컨디션 ${diff>0?"+":""}${(diff/5*100).toFixed(0)}% (운동 ${avgEx.toFixed(1)}점 vs 미운동 ${avgNoEx.toFixed(1)}점)`);
+          const diff = avgArr(exNext) - avgArr(noExNext);
+          if (Math.abs(diff) >= 0.2) morningIns.push(`🏃 운동한 날 다음 날 아침 컨디션 ${diff>0?"+":""}${(diff/5*100).toFixed(0)}% (운동 ${avgArr(exNext).toFixed(1)}점 vs 미운동 ${avgArr(noExNext).toFixed(1)}점)`);
         }
-        // Fasting → meal quality
+        const medDays = scored.filter((x,i)=>i<scored.length-1 && x.e && (x.e.events||[]).some(ev=>ev.type==="meditation"));
+        const noMedDays = scored.filter((x,i)=>i<scored.length-1 && x.e && !(x.e.events||[]).some(ev=>ev.type==="meditation"));
+        const medNext = nextMornLv(medDays), noMedNext = nextMornLv(noMedDays);
+        if (medNext.length >= 3 && noMedNext.length >= 3) {
+          const diff = avgArr(medNext) - avgArr(noMedNext);
+          if (Math.abs(diff) >= 0.2) morningIns.push(`🧘 명상한 날 다음 날 아침 컨디션 ${diff>0?"+":""}${(diff/5*100).toFixed(0)}% (명상 ${avgArr(medNext).toFixed(1)}점 vs 미명상 ${avgArr(noMedNext).toFixed(1)}점)`);
+        }
+        const hdDays = scored.filter((x,i)=>i<scored.length-1 && x.e && (x.e.events||[]).some(ev=>ev.type==="hydration"&&ev.hydType==="health"));
+        const noHdDays = scored.filter((x,i)=>i<scored.length-1 && x.e && !(x.e.events||[]).some(ev=>ev.type==="hydration"&&ev.hydType==="health"));
+        const hdNext = nextMornLv(hdDays), noHdNext = nextMornLv(noHdDays);
+        if (hdNext.length >= 3 && noHdNext.length >= 3) {
+          const diff = avgArr(hdNext) - avgArr(noHdNext);
+          if (Math.abs(diff) >= 0.2) morningIns.push(`🌿 건강주스 마신 날 다음 날 아침 컨디션 ${diff>0?"+":""}${(diff/5*100).toFixed(0)}% (마신 날 ${avgArr(hdNext).toFixed(1)}점 vs 안 마신 날 ${avgArr(noHdNext).toFixed(1)}점)`);
+        }
+        const hydrOkDays = scored.filter((x,i)=>i<scored.length-1 && x.sc?.hydrationMl >= hGoal);
+        const hydrFailDays = scored.filter((x,i)=>i<scored.length-1 && x.e && x.sc?.hydrationMl != null && x.sc.hydrationMl < hGoal);
+        const hydrOkNext = nextMornLv(hydrOkDays), hydrFailNext = nextMornLv(hydrFailDays);
+        if (hydrOkNext.length >= 3 && hydrFailNext.length >= 3) {
+          const diff = avgArr(hydrOkNext) - avgArr(hydrFailNext);
+          if (diff >= 0.2) morningIns.push(`💧 수분 목표 달성한 날 다음 날 아침 컨디션 ${avgArr(hydrOkNext).toFixed(1)}점 (미달 날 ${avgArr(hydrFailNext).toFixed(1)}점)`);
+        }
         if (hasData >= 20) {
           const fastOk = scored.filter(x=>x.sc?.fastHours!=null && x.sc.fastHours>=fGoal && x.e);
           const fastFail = scored.filter(x=>x.sc?.fastHours!=null && x.sc.fastHours<fGoal && x.e);
           if (fastOk.length >= 5 && fastFail.length >= 5) {
             const binge = arr => { const m = arr.flatMap(x=>(x.e.events||[]).filter(ev=>ev.type==="meal")); return m.length ? m.filter(m=>m.feel==="폭식").length/m.length*100 : 0; };
             const okB = binge(fastOk), failB = binge(fastFail);
-            if (failB > okB+5) insights.push(`⏰ 공복을 지킨 날 과식률 ${okB.toFixed(0)}%, 공복 미달 날 ${failB.toFixed(0)}%`);
+            if (failB > okB+5) morningIns.push(`⏰ 공복을 지킨 날 과식률 ${okB.toFixed(0)}%, 공복 미달 날 ${failB.toFixed(0)}%`);
           }
         }
-        // Late night → next-day morning
         const lnDays = scored.filter((x,i)=>i<scored.length-1 && x.e && (x.e.events||[]).some(ev=>ev.type==="meal"&&(ev.mealSlot==="야식"||toMin(ev.time)>=1230)));
         const noLnDays = scored.filter((x,i)=>i<scored.length-1 && x.e && !(x.e.events||[]).some(ev=>ev.type==="meal"&&(ev.mealSlot==="야식"||toMin(ev.time)>=1230)));
         const lnNext = nextMornLv(lnDays), noLnNext = nextMornLv(noLnDays);
         if (lnNext.length >= 3 && noLnNext.length >= 5) {
-          const aL = lnNext.reduce((a,v)=>a+v,0)/lnNext.length;
-          const aNL = noLnNext.reduce((a,v)=>a+v,0)/noLnNext.length;
-          if (aNL > aL+0.2) insights.push(`🌙 야식 없는 날 다음 날 아침 컨디션 ${aNL.toFixed(1)}점 (야식 있는 날 ${aL.toFixed(1)}점)`);
+          const diff = avgArr(noLnNext) - avgArr(lnNext);
+          if (diff > 0.2) morningIns.push(`🌙 야식 없는 날 다음 날 아침 컨디션 ${avgArr(noLnNext).toFixed(1)}점 (야식 있는 날 ${avgArr(lnNext).toFixed(1)}점)`);
+        }
+        // ── 저녁 컨디션 인사이트 (당일 데이터 기준) ──
+        const withEvening = scored.filter(x => x.e?.evening?.level != null);
+        const checkEve = (fYes, fNo) => {
+          const g = withEvening.filter(fYes), n = withEvening.filter(fNo);
+          if (g.length < 3 || n.length < 3) return null;
+          return { avgG: avgArr(g.map(x=>x.e.evening.level)), avgN: avgArr(n.map(x=>x.e.evening.level)) };
+        };
+        const evEx = checkEve(x=>(x.e.events||[]).some(ev=>ev.type==="exercise"), x=>!(x.e.events||[]).some(ev=>ev.type==="exercise"));
+        if (evEx && Math.abs(evEx.avgG - evEx.avgN) >= 0.2) eveningIns.push(`🏃 운동한 날 저녁 컨디션 ${evEx.avgG.toFixed(1)}점 (미운동 ${evEx.avgN.toFixed(1)}점)`);
+        const evMed = checkEve(x=>(x.e.events||[]).some(ev=>ev.type==="meditation"), x=>!(x.e.events||[]).some(ev=>ev.type==="meditation"));
+        if (evMed && Math.abs(evMed.avgG - evMed.avgN) >= 0.2) eveningIns.push(`🧘 명상한 날 저녁 컨디션 ${evMed.avgG.toFixed(1)}점 (미명상 ${evMed.avgN.toFixed(1)}점)`);
+        const evHd = checkEve(x=>(x.e.events||[]).some(ev=>ev.type==="hydration"&&ev.hydType==="health"), x=>!(x.e.events||[]).some(ev=>ev.type==="hydration"&&ev.hydType==="health"));
+        if (evHd && Math.abs(evHd.avgG - evHd.avgN) >= 0.2) eveningIns.push(`🌿 건강주스 마신 날 저녁 컨디션 ${evHd.avgG.toFixed(1)}점 (안 마신 날 ${evHd.avgN.toFixed(1)}점)`);
+        const evHydr = checkEve(x=>x.sc?.hydrationMl >= hGoal, x=>x.sc?.hydrationMl != null && x.sc.hydrationMl < hGoal);
+        if (evHydr && evHydr.avgG - evHydr.avgN >= 0.2) eveningIns.push(`💧 수분 목표 달성한 날 저녁 컨디션 ${evHydr.avgG.toFixed(1)}점 (미달 날 ${evHydr.avgN.toFixed(1)}점)`);
+        const evCs = checkEve(x=>(x.e.events||[]).some(ev=>ev.type==="activity"&&ev.coldShower), x=>!(x.e.events||[]).some(ev=>ev.type==="activity"&&ev.coldShower));
+        if (evCs && Math.abs(evCs.avgG - evCs.avgN) >= 0.2) eveningIns.push(`🚿 찬물샤워한 날 저녁 컨디션 ${evCs.avgG.toFixed(1)}점 (안 한 날 ${evCs.avgN.toFixed(1)}점)`);
+        // ── 화장실 인사이트 (식사, 수분) ──
+        const withBath = scored.filter(x=>x.sc?.bathroomAvg!=null && x.sc.bathroomCount>0);
+        if (withBath.length >= 5) {
+          const bathAvg = arr => avgArr(arr.map(x=>x.sc.bathroomAvg));
+          const cleanBath = withBath.filter(x=>(x.e.events||[]).some(ev=>ev.type==="meal"&&(ev.feel==="클린"||ev.feel==="보통")) && !(x.e.events||[]).some(ev=>ev.type==="meal"&&(ev.feel==="정크"||ev.feel==="폭식")));
+          const junkBath = withBath.filter(x=>(x.e.events||[]).some(ev=>ev.type==="meal"&&(ev.feel==="정크"||ev.feel==="폭식")));
+          if (cleanBath.length >= 3 && junkBath.length >= 3 && bathAvg(cleanBath) - bathAvg(junkBath) >= 10) bathroomIns.push(`🥗 클린/보통 식사한 날 화장실 편함 ${bathAvg(cleanBath).toFixed(0)}점 (정크/폭식 날 ${bathAvg(junkBath).toFixed(0)}점)`);
+          const homeBath = withBath.filter(x=>(x.e.events||[]).some(ev=>ev.type==="meal"&&ev.location==="집밥") && !(x.e.events||[]).some(ev=>ev.type==="meal"&&ev.location==="배달"));
+          const deliBath = withBath.filter(x=>(x.e.events||[]).some(ev=>ev.type==="meal"&&ev.location==="배달"));
+          if (homeBath.length >= 3 && deliBath.length >= 3 && bathAvg(homeBath) - bathAvg(deliBath) >= 10) bathroomIns.push(`🏠 집밥 날 화장실 편함 ${bathAvg(homeBath).toFixed(0)}점 vs 배달 날 ${bathAvg(deliBath).toFixed(0)}점`);
+          const hydrBG = withBath.filter(x=>x.sc.hydrationMl >= hGoal);
+          const hydrBN = withBath.filter(x=>x.sc.hydrationMl != null && x.sc.hydrationMl < hGoal);
+          if (hydrBG.length >= 3 && hydrBN.length >= 3 && bathAvg(hydrBG) - bathAvg(hydrBN) >= 10) bathroomIns.push(`💧 수분 달성한 날 화장실 편함 ${bathAvg(hydrBG).toFixed(0)}점 (미달 날 ${bathAvg(hydrBN).toFixed(0)}점)`);
         }
       }
-      setHistData({ periodCycle, streaks, insights });
+      setHistData({ periodCycle, streaks, insights: { morning: morningIns, evening: eveningIns, bathroom: bathroomIns } });
     });
   }, [goals]);
   const [prevWeekTot, setPrevWeekTot] = React.useState(null);
@@ -3737,11 +3784,20 @@ function StatsView({ goals }) {
         }).filter(Boolean)
       )
     ),
-    histData?.insights?.length>0 && /*#__PURE__*/React.createElement("div",{style:{padding:"10px 14px",background:"#fff8f0",borderBottom:"1px solid #ddd8f0"}},
+    (histData?.insights?.morning?.length>0 || histData?.insights?.evening?.length>0 || histData?.insights?.bathroom?.length>0) && /*#__PURE__*/React.createElement("div",{style:{padding:"10px 14px",background:"#fff8f0",borderBottom:"1px solid #ddd8f0"}},
       /*#__PURE__*/React.createElement("div",{style:{fontSize:10,fontWeight:800,color:"#905020",letterSpacing:"0.08em",marginBottom:8}},"💡 데이터 인사이트"),
-      /*#__PURE__*/React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:5}},
-        histData.insights.map((ins,i)=>
-          /*#__PURE__*/React.createElement("div",{key:i,style:{fontSize:11.5,color:"#5a3010",background:"#fff",border:"1px solid #e8c898",borderRadius:4,padding:"6px 10px",borderLeft:"3px solid #e0a040"}},ins)
+      [
+        {key:"morning",label:"☀️ 아침 컨디션",color:"#1565c0",border:"#90caf9",bg:"#e3f2fd"},
+        {key:"evening",label:"🌙 저녁 컨디션",color:"#6a1b9a",border:"#ce93d8",bg:"#f3e5f5"},
+        {key:"bathroom",label:"🚽 화장실",color:"#1b5e20",border:"#a5d6a7",bg:"#e8f5e9"},
+      ].filter(s=>histData.insights[s.key]?.length>0).map((s,si)=>
+        /*#__PURE__*/React.createElement("div",{key:s.key,style:{marginBottom:si<2?10:0}},
+          /*#__PURE__*/React.createElement("div",{style:{fontSize:10,fontWeight:800,color:s.color,marginBottom:4}},s.label),
+          /*#__PURE__*/React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:4}},
+            histData.insights[s.key].map((ins,i)=>
+              /*#__PURE__*/React.createElement("div",{key:i,style:{fontSize:11,color:"#3a2000",background:s.bg,border:`1px solid ${s.border}`,borderRadius:4,padding:"5px 10px",borderLeft:`3px solid ${s.border}`}},ins)
+            )
+          )
         )
       )
     ),
