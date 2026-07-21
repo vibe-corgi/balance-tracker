@@ -1553,6 +1553,7 @@ function QuickLogForm({
   const [mealSlot, setMealSlot] = useState(() => autoMealSlot(nowHM()));
   const [location, setLocation] = useState(null);
   const [eatSpeed, setEatSpeed] = useState(null);
+  const [digestion, setDigestion] = useState(null);
   const [coldShower, setColdShower] = useState(false);
   const [exTypes, setExTypes] = useState(new Set());
   const toggleExType = t => setExTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
@@ -1588,6 +1589,7 @@ function QuickLogForm({
       location,
       eatSpeed,
       ...(emotional && { emotional: true }),
+      ...(digestion && { digestion }),
     });else if (type === "hydration") onSubmit({
       time,
       hydType,
@@ -1811,6 +1813,17 @@ function QuickLogForm({
         /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: dessert, onChange: e => setDessert(e.target.checked) }), "🍰 디저트"),
       /*#__PURE__*/React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: INK, fontWeight: 600 } },
         /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: emotional, onChange: e => setEmotional(e.target.checked) }), "😤 감정적")
+    ),
+    /*#__PURE__*/React.createElement("div", { style: { marginTop: 10 } },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6 } }, "소화"),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 4 } },
+        [["😊","잘 됨"],["😐","보통"],["😣","더부룩"],["🤢","체함"]].map(([ic,dg]) =>
+          /*#__PURE__*/React.createElement("button", { key: dg, onClick: () => setDigestion(digestion===dg?null:dg),
+            style: { flex: 1, padding: "6px 0", border: `2px solid ${digestion===dg?INK:"transparent"}`, borderRadius: 2, background: digestion===dg?"#ffffffcc":"transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }
+          }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 14 } }, ic), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: INK } }, dg))
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 9, color: "#a090b8" } }, "식후에 알게 되면 나중에 수정해도 돼요")
     )
   ), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2116,7 +2129,7 @@ function EventRow({
       const hydIcon = hydDef?.icon;
       const hydComp = hydDef?.comp;
       const hydLabel = hydDef?.label;
-      const extra = ev.type === "meal" ? `${ev.endTime && ev.endTime !== ev.time ? ` ~${ev.endTime}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.mealWith ? ` · 👥 ${ev.mealWith}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}${ev.snack ? " · 🍬 간식" : ""}${ev.dessert ? " · 🍰 디저트" : ""}` :ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 🧘 결가부좌" : ""}${ev.mantra ? " · 🔔 진언/만트라" : ""}${ev.nap ? " · 😴 수면" : ""}${ev.zoneOut ? " · 🌀 멍때리기" : ""}${ev.exTypes?.length ? ` · ${ev.exTypes.join(", ")}` : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
+      const extra = ev.type === "meal" ? `${ev.endTime && ev.endTime !== ev.time ? ` ~${ev.endTime}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.mealWith ? ` · 👥 ${ev.mealWith}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}${ev.snack ? " · 🍬 간식" : ""}${ev.dessert ? " · 🍰 디저트" : ""}${ev.digestion ? ` · 소화 ${ev.digestion}` : ""}` :ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 🧘 결가부좌" : ""}${ev.mantra ? " · 🔔 진언/만트라" : ""}${ev.nap ? " · 😴 수면" : ""}${ev.zoneOut ? " · 🌀 멍때리기" : ""}${ev.exTypes?.length ? ` · ${ev.exTypes.join(", ")}` : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
       content = /*#__PURE__*/React.createElement(React.Fragment, null, ev.type === "hydration" && hydComp ? /*#__PURE__*/React.createElement(hydComp) : ev.type === "hydration" && hydIcon ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 13 } }, hydIcon) : /*#__PURE__*/React.createElement(Icon, {
         size: 13,
         color: def.color,
@@ -2184,6 +2197,7 @@ function EventEditForm({
   const [mealSlot, setMealSlot] = useState(ev.mealSlot || autoMealSlot(ev.time || "12:00"));
   const [location, setLocation] = useState(ev.location || null);
   const [eatSpeed, setEatSpeed] = useState(ev.eatSpeed || null);
+  const [digestion, setDigestion] = useState(ev.digestion || null);
   const [coldShower, setColdShower] = useState(ev.coldShower || false);
   const [exTypes, setExTypes] = useState(new Set(ev.exTypes || []));
   const toggleExType = t => setExTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
@@ -2218,6 +2232,7 @@ function EventEditForm({
       location,
       eatSpeed,
       ...(emotional && { emotional: true }),
+      ...(digestion && { digestion }),
     });else if (ev.type === "hydration") onSave({
       time,
       hydType,
@@ -2343,6 +2358,17 @@ function EventEditForm({
         /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: dessert, onChange: e => setDessert(e.target.checked) }), "🍰 디저트"),
       /*#__PURE__*/React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: INK, fontWeight: 600 } },
         /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: emotional, onChange: e => setEmotional(e.target.checked) }), "😤 감정적")
+    ),
+    /*#__PURE__*/React.createElement("div", { style: { marginTop: 10 } },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6 } }, "소화"),
+      /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 4 } },
+        [["😊","잘 됨"],["😐","보통"],["😣","더부룩"],["🤢","체함"]].map(([ic,dg]) =>
+          /*#__PURE__*/React.createElement("button", { key: dg, onClick: () => setDigestion(digestion===dg?null:dg),
+            style: { flex: 1, padding: "6px 0", border: `2px solid ${digestion===dg?INK:"transparent"}`, borderRadius: 2, background: digestion===dg?"#ffffffcc":"transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }
+          }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 14 } }, ic), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: INK } }, dg))
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 9, color: "#a090b8" } }, "식후에 알게 되면 나중에 수정해도 돼요")
     )
   )), ev.type === "hydration" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
@@ -3609,6 +3635,9 @@ function StatsView({ goals }) {
     const speeds={천천히:0,보통:0,빨리:0};
     meals.forEach(e=>{ if(e.eatSpeed && e.eatSpeed in speeds) speeds[e.eatSpeed]++; });
     const emotionalN = meals.filter(e=>e.emotional).length;
+    const dgMap={"잘 됨":0,"보통":0,"더부룩":0,"체함":0};
+    meals.forEach(e=>{ if(e.digestion && e.digestion in dgMap) dgMap[e.digestion]++; });
+    const dgN = meals.filter(e=>e.digestion).length;
     const sleepM = sc.sleepHours!=null?Math.round(sc.sleepHours*60):0;
     const sleepGoalM = (goals?.sleepGoalMinH??6)*60;
     const fastGoal = goals?.fastingGoalHours??12;
@@ -3627,7 +3656,7 @@ function StatsView({ goals }) {
       lotusN:medEvs.filter(e=>e.lotus).length, mantraN:medEvs.filter(e=>e.mantra).length,
       rstN:rstEvs.length, rstM:rstEvs.reduce((a,e)=>a+(e.duration||0),0),
       napN:rstEvs.filter(e=>e.nap).length, zoneN:rstEvs.filter(e=>e.zoneOut).length,
-      snackN:meals.filter(e=>e.snack).length, fc, slots, locs, speeds, emotionalN,
+      snackN:meals.filter(e=>e.snack).length, fc, slots, locs, speeds, emotionalN, dgMap, dgN,
       mealN:realMeals.length,
       period:entry.morning?.period?1:0,
       morningRoutine:entry.morning?.morningRoutine?1:0,
@@ -3681,6 +3710,8 @@ function StatsView({ goals }) {
       slots:["아침","점심","저녁","야식","간식"].reduce((a,s)=>{a[s]=S(d=>d.slots[s]);return a;},{}),
       locs:["집밥","외식","배달","회사"].reduce((a,l)=>{a[l]=S(d=>d.locs[l]);return a;},{}),
       speeds:["천천히","보통","빨리"].reduce((a,sp)=>{a[sp]=S(d=>d.speeds[sp]);return a;},{}),
+      dgMap:["잘 됨","보통","더부룩","체함"].reduce((a,k)=>{a[k]=S(d=>d.dgMap?.[k]??0);return a;},{}),
+      dgN:S(d=>d.dgN??0),
       period:S(d=>d.period),
       morningRoutine:S(d=>d.morningRoutine),
       coldShower:S(d=>d.coldShower),
@@ -3917,6 +3948,23 @@ function StatsView({ goals }) {
             ()=>Row("└ 🏠 집밥",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.locs["집밥"]>0?G(s.locs["집밥"]+"회"):Dim)),tot?`총 ${tot.locs["집밥"]}회`:""),
             ()=>Row("└ 🛵 배달",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.locs["배달"]>0?R(s.locs["배달"]+"회"):Dim)),tot?(tot.locs["배달"]>0?R(`총 ${tot.locs["배달"]}회`):`총 0회`):""),
             ()=>Row("└ 🍴 외식",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.locs["외식"]>0?s.locs["외식"]+"회":Dim)),tot?`총 ${tot.locs["외식"]}회`:""),
+            ()=>Row("🫃 소화",L(SC.meal[0]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("meal")},
+                s?.dgN>0 ? (()=>{
+                  const best = ["잘 됨","보통","더부룩","체함"].find(k=>s.dgMap[k]>0);
+                  const worst = ["체함","더부룩","보통","잘 됨"].find(k=>s.dgMap[k]>0);
+                  return worst==="체함"?R("🤢"):worst==="더부룩"?/*#__PURE__*/React.createElement("span",{style:{color:"#b06000",fontWeight:700}},"😣"):worst==="보통"?/*#__PURE__*/React.createElement("span",null,"😐"):G("😊");
+                })() : Dim
+              )),
+              tot?.dgN>0 ? S2(
+                `기록 ${tot.dgN}회`,
+                [["😊","잘 됨"],["😐","보통"],["😣","더부룩"],["🤢","체함"]].filter(([,k])=>tot.dgMap[k]>0).map(([ic,k])=>`${ic}${tot.dgMap[k]}`).join(" · ")
+              ) : "기록 없음"
+            ),
+            ()=>Row("└ 😊 잘 됨",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.dgMap?.["잘 됨"]>0?G(s.dgMap["잘 됨"]+"회"):Dim)),tot?`총 ${tot.dgMap?.["잘 됨"]??0}회`:""),
+            ()=>Row("└ 😐 보통",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.dgMap?.["보통"]>0?s.dgMap["보통"]+"회":Dim)),tot?`총 ${tot.dgMap?.["보통"]??0}회`:""),
+            ()=>Row("└ 😣 더부룩",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.dgMap?.["더부룩"]>0?/*#__PURE__*/React.createElement("span",{style:{color:"#b06000",fontWeight:700}},s.dgMap["더부룩"]+"회"):Dim)),tot?(tot.dgMap?.["더부룩"]>0?/*#__PURE__*/React.createElement("span",{style:{color:"#b06000",fontWeight:700}},`총 ${tot.dgMap["더부룩"]}회`):`총 0회`):""),
+            ()=>Row("└ 🤢 체함",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.dgMap?.["체함"]>0?R(s.dgMap["체함"]+"회"):Dim)),tot?(tot.dgMap?.["체함"]>0?R(`총 ${tot.dgMap["체함"]}회`):`총 0회`):""),
           )
         )
       )
