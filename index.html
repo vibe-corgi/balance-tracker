@@ -610,7 +610,7 @@ async function loadEntry(date, attempt = 0) {
     if (!Array.isArray(e.events)) e.events = [];
     const hasMorning = e.morning && (e.morning.level != null || e.morning.wakeTime || e.morning.period || e.morning.stretch || e.morning.saltGargle || e.morning.morningRoutine || e.morning.note);
     if (!hasMorning) e.morning = null;
-    const hasEvening = e.evening && (e.evening.level != null || e.evening.bedTime || e.evening.eveningRoutine || e.evening.note);
+    const hasEvening = e.evening && (e.evening.level != null || e.evening.bedTime || e.evening.eveningRoutine || e.evening.stretch || e.evening.note);
     if (!hasEvening) e.evening = null;
     if (!e._lv) {
       if (e.morning && e.morning.level != null) e.morning.level = Math.min(e.morning.level + 1, 5);
@@ -719,8 +719,9 @@ function computeDayScore(entry, prevEntry, goals) {
   if (!hasAnyData) return null;
   const parts = [];
 
-  // 아침 루틴 (5%): 기상 후 1시간 폰 끄기
-  if (entry.morning?.morningRoutine) parts.push({ key: "morningRoutine", v: 100, w: 5 });
+  // 아침 루틴 (5%): 스트레칭 + 소금가글 + 아침디톡스 (부분 점수)
+  const mornItems = [entry.morning?.morningRoutine, entry.morning?.stretch, entry.morning?.saltGargle].filter(Boolean).length;
+  if (mornItems > 0) parts.push({ key: "morningRoutine", v: Math.round(mornItems / 3 * 100), w: 5 });
   // 찬물샤워 (5%) — 활동 이벤트에서 체크
   const hasColdShower = entry.events.filter(e => e.type === "activity").some(e => e.coldShower);
   if (hasColdShower) parts.push({ key: "coldShower", v: 100, w: 5 });
@@ -782,8 +783,9 @@ function computeDayScore(entry, prevEntry, goals) {
     parts.push({ key: "meditation", v: medMinutes >= medGoal ? 100 : Math.min(100, medMinutes / medGoal * 100), w: 10 });
   }
 
-  // 저녁 루틴 (5%): 취침 전 1시간 폰 끄기
-  if (entry.evening?.eveningRoutine) parts.push({ key: "eveningRoutine", v: 100, w: 5 });
+  // 저녁 루틴 (5%): 저녁디톡스 + 스트레칭 (부분 점수)
+  const eveItems = [entry.evening?.eveningRoutine, entry.evening?.stretch].filter(Boolean).length;
+  if (eveItems > 0) parts.push({ key: "eveningRoutine", v: Math.round(eveItems / 2 * 100), w: 5 });
 
   const restMinutes = entry.events.filter(e => e.type === "rest").reduce((a, e) => a + (e.duration || 0), 0);
 
@@ -955,8 +957,10 @@ function ScoreInfo({
   const medGoal = goals.meditationGoalMin || 20;
   const hydGoalMl = (goals.hydrationGoalL || 1.5) * 1000;
   const fastGoalH = goals.fastingGoalHours || 12;
-  const morningPt = entry.morning?.morningRoutine ? 100 : null;
-  const eveningPt = entry.evening?.eveningRoutine ? 100 : null;
+  const mornItems = [entry.morning?.morningRoutine, entry.morning?.stretch, entry.morning?.saltGargle].filter(Boolean).length;
+  const morningPt = mornItems > 0 ? Math.round(mornItems / 3 * 100) : null;
+  const eveItems = [entry.evening?.eveningRoutine, entry.evening?.stretch].filter(Boolean).length;
+  const eveningPt = eveItems > 0 ? Math.round(eveItems / 2 * 100) : null;
   const coldShowerPt = entry.events?.filter(e=>e.type==="activity").some(e=>e.coldShower) ? 100 : null;
   const fastPt = score.fastHours != null ? (score.fastHours >= fastGoalH ? 100 : Math.round(Math.min(100, score.fastHours / fastGoalH * 100))) : null;
   const foodPt = (() => { const feels = entry.events.filter(e=>e.type==="meal"&&(e.feel||e.hunger||e.mealPrep)); if (!feels.length) return null; const fm={"클린":100,"보통":70,"정크":30,"폭식":0}; const hm={"😋 많이 배고팠음":100,"🙂 적당히 배고팠음":70,"😐 그냥 먹음":40,"😮‍💨 안 배고팠음":0}; const pm={"🍽️ 잘 차렸음":100,"🥡 대충 때움":0}; return Math.round(feels.reduce((a,e)=>{ const q=e.feel?(fm[e.feel]??null):null; const hv=e.hunger?(hm[e.hunger]??null):null; const pv=e.mealPrep?(pm[e.mealPrep]??null):null; let t=0,w=0; if(q!=null){t+=q*70;w+=70;} if(hv!=null){t+=hv*25;w+=25;} if(pv!=null){t+=pv*5;w+=5;} return w>0?a+t/w:a; },0)/feels.length); })();
@@ -971,7 +975,7 @@ function ScoreInfo({
   const rows = [{
     label: "🌅 아침 루틴",
     weight: 5,
-    val: entry.morning?.morningRoutine ? `달성 · ${fmtPt(morningPt)}` : "-"
+    val: mornItems > 0 ? `${[entry.morning?.stretch?"🤸":"", entry.morning?.saltGargle?"🧂":"", entry.morning?.morningRoutine?"📵":""].filter(Boolean).join(" ")} · ${fmtPt(morningPt)}` : "-"
   }, {
     label: "⏰ 공복",
     weight: 10,
@@ -1003,7 +1007,7 @@ function ScoreInfo({
   }, {
     label: "🌙 저녁 루틴",
     weight: 5,
-    val: entry.evening?.eveningRoutine ? `달성 · ${fmtPt(eveningPt)}` : "-"
+    val: eveItems > 0 ? `${[entry.evening?.stretch?"🤸":"", entry.evening?.eveningRoutine?"📵":""].filter(Boolean).join(" ")} · ${fmtPt(eveningPt)}` : "-"
   }, {
     label: "😴 수면",
     weight: 15,
@@ -1138,6 +1142,7 @@ function CheckinCard({
       payload.bedTime = bedTime;
       payload.bedNextDay = bedNextDay;
       payload.eveningRoutine = eveningRoutine;
+      payload.stretch = stretch;
     }
     if (showPeriod) payload.period = period;
     if (showWake) { payload.stretch = stretch; payload.saltGargle = saltGargle; payload.morningRoutine = morningRoutine; }
@@ -1200,7 +1205,7 @@ function CheckinCard({
       color: "#8a80a0",
       marginTop: 2
     }
-  }, "취침 ", data.bedTime, data.bedNextDay ? " (다음날 새벽)" : ""), (showPeriod && data.period || data.stretch || data.saltGargle) && /*#__PURE__*/React.createElement("div", {
+  }, "취침 ", data.bedTime, data.bedNextDay ? " (다음날 새벽)" : ""), (showPeriod && data.period || data.stretch || data.saltGargle || data.morningRoutine || data.eveningRoutine) && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2 }
   },
   showPeriod && data.period && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11.5, color: "#E74C8B", fontWeight: 700 } }, "🩸 생리중"),
@@ -1335,16 +1340,24 @@ function CheckinCard({
     style: { marginTop: 10 }
   }, /*#__PURE__*/React.createElement("div", {
     style: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: "#5B5580" }
-  }, "저녁 루틴"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    onClick: () => setEveningRoutine(v => !v),
-    style: { padding: "6px 12px", border: `1.5px solid ${eveningRoutine ? "#7B5EA7" : "#c0b0d0"}`, borderRadius: 12, cursor: "pointer", fontSize: 11, fontWeight: 600, background: eveningRoutine ? "#7B5EA7" : "#f5f0fa", color: eveningRoutine ? "#fff" : "#8a70a0" }
-  }, "📵 저녁 디톡스")), /*#__PURE__*/React.createElement("textarea", {
+  }, "저녁 루틴"), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+    /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => setStretch(v => !v),
+      style: { padding: "6px 12px", border: `1.5px solid ${stretch ? "#20A060" : "#c0b0d0"}`, borderRadius: 12, cursor: "pointer", fontSize: 11, fontWeight: 600, background: stretch ? "#20A060" : "#f5f0fa", color: stretch ? "#fff" : "#8a70a0" }
+    }, "🤸 스트레칭"),
+    /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => setEveningRoutine(v => !v),
+      style: { padding: "6px 12px", border: `1.5px solid ${eveningRoutine ? "#7B5EA7" : "#c0b0d0"}`, borderRadius: 12, cursor: "pointer", fontSize: 11, fontWeight: 600, background: eveningRoutine ? "#7B5EA7" : "#f5f0fa", color: eveningRoutine ? "#fff" : "#8a70a0" }
+    }, "📵 저녁 디톡스")
+  )), /*#__PURE__*/React.createElement("textarea", {
     value: note,
     onChange: e => setNote(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
     placeholder: "한두 줄이면 충분해요",
     rows: 2,
-    style: textareaStyle
+    style: { ...textareaStyle, overflow: "hidden" }
   }), /*#__PURE__*/React.createElement("button", {
     onClick: save,
     style: primaryBtn
@@ -1554,6 +1567,8 @@ function QuickLogForm({
   const [location, setLocation] = useState(null);
   const [eatSpeed, setEatSpeed] = useState(null);
   const [digestion, setDigestion] = useState(null);
+  const [locationNote, setLocationNote] = useState("");
+  const [exerciseNote, setExerciseNote] = useState("");
   const [coldShower, setColdShower] = useState(false);
   const [exTypes, setExTypes] = useState(new Set());
   const toggleExType = t => setExTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
@@ -1574,6 +1589,7 @@ function QuickLogForm({
       ...(type === "rest" && { nap, zoneOut }),
       ...(type === "meditation" && { mantra }),
       ...(type === "exercise" && exTypes.size > 0 && { exTypes: [...exTypes] }),
+      ...(type === "exercise" && exerciseNote.trim() && { exerciseNote: exerciseNote.trim() }),
       ...(type === "activity" && { coldShower }),
     });else if (type === "meal") onSubmit({
       time,
@@ -1590,12 +1606,15 @@ function QuickLogForm({
       eatSpeed,
       ...(emotional && { emotional: true }),
       ...(digestion && { digestion }),
+      ...(memo.trim() && { memo: memo.trim() }),
+      ...(location === "기타" && locationNote.trim() && { locationNote: locationNote.trim() }),
     });else if (type === "hydration") onSubmit({
       time,
       hydType,
       label,
       amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0,
-      cups: hydType === "health" ? (Number(cups) || 1) : undefined
+      cups: hydType === "health" ? (Number(cups) || 1) : undefined,
+      ...(memo.trim() && { memo: memo.trim() })
     });else if (type === "emotion") onSubmit({
       time,
       name: emotion === "기타" ? (customName.trim() || "기타") : emotion,
@@ -1679,7 +1698,7 @@ function QuickLogForm({
     style: { display: "flex", gap: 6, alignItems: "center" }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", value: label, onChange: e => setLabel(e.target.value),
-    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "milk" ? "종류 (두유, 귀리 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : hydType === "alcohol" ? "종류 (맥주, 와인 등)" : "재료 (선택)",
+    placeholder: hydType === "water" ? "이름/메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "milk" ? "종류 (두유, 귀리 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : hydType === "alcohol" ? "종류 (맥주, 와인 등)" : "재료 (선택)",
     style: { ...inputStyle, flex: 2, minWidth: 0 }
   }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }
@@ -1692,7 +1711,13 @@ function QuickLogForm({
   }, /*#__PURE__*/React.createElement("input", {
     type: "number", value: cups, onChange: e => setCups(e.target.value),
     min: "1", style: { ...inputStyle, width: 58 }
-  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, color: "#5B5580", fontWeight: 700 } }, "잔"))))), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, color: "#5B5580", fontWeight: 700 } }, "잔")))),
+  /*#__PURE__*/React.createElement("textarea", {
+    value: memo, onChange: e => setMemo(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
+    rows: 2, placeholder: "메모 (선택)",
+    style: { ...textareaStyle, marginTop: 6, background: "#ffffffcc", overflow: "hidden" }
+  })), type === "meal" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "time",
@@ -1791,13 +1816,17 @@ function QuickLogForm({
     }
   }, p)))), type === "meal" && /*#__PURE__*/React.createElement("div", null,
     /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "어디서 먹었나요?"),
-    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 8 } },
-      [["🏠","집밥"],["🍴","외식"],["🛵","배달"],["🏢","회사"]].map(([ic,lo]) =>
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 4 } },
+      [["🏠","집밥"],["🍴","외식"],["🛵","배달"],["🌐","기타"]].map(([ic,lo]) =>
         /*#__PURE__*/React.createElement("button", { key: lo, onClick: () => setLocation(location===lo?null:lo),
           style: { flex: 1, padding: "6px 0", border: `2px solid ${location===lo?INK:"transparent"}`, borderRadius: 2, background: location===lo?"#ffffffcc":"transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }
         }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 14 } }, ic), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: INK } }, lo))
       )
     ),
+    location === "기타" && /*#__PURE__*/React.createElement("input", {
+      type: "text", value: locationNote, onChange: e => setLocationNote(e.target.value),
+      placeholder: "어디서? (회사, 편의점, 병원 등)", style: { ...inputStyle, width: "100%", boxSizing: "border-box", marginBottom: 4 }
+    }),
     /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6 } }, "식사 속도"),
     /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 10 } },
       [["🐢","천천히"],["🚶","보통"],["🏃","빨리"]].map(([ic,sp]) =>
@@ -1824,7 +1853,13 @@ function QuickLogForm({
         )
       ),
       /*#__PURE__*/React.createElement("div", { style: { fontSize: 9, color: "#a090b8" } }, "식후에 알게 되면 나중에 수정해도 돼요")
-    )
+    ),
+    /*#__PURE__*/React.createElement("textarea", {
+      value: memo, onChange: e => setMemo(e.target.value),
+      onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
+      rows: 2, placeholder: "메모 (선택)",
+      style: { ...textareaStyle, marginTop: 8, background: "#ffffffcc", overflow: "hidden" }
+    })
   ), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -1856,16 +1891,17 @@ function QuickLogForm({
       fontWeight: 700,
       flexShrink: 0
     }
-  }, fmtHM(computedDuration))), /*#__PURE__*/React.createElement("textarea", {
+  }, fmtHM(computedDuration))), type === "exercise" ? /*#__PURE__*/React.createElement("input", {
+    type: "text", value: memo, onChange: e => setMemo(e.target.value),
+    placeholder: "무엇을 했는지 (예: 걷기, 스트레칭)",
+    style: { ...inputStyle, width: "100%", boxSizing: "border-box", marginTop: 0 }
+  }) : /*#__PURE__*/React.createElement("textarea", {
     value: memo,
     onChange: e => setMemo(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
     rows: 2,
-    placeholder: type === "exercise" ? "무엇을 했는지 (예: 걷기, 스트레칭)" : type === "rest" ? "어떤 쉼이었나요? (낮잠, 멍때림, 음악 등)" : "짧은 메모 (선택)",
-    style: {
-      ...textareaStyle,
-      marginTop: 0,
-      background: "#ffffffcc"
-    }
+    placeholder: type === "rest" ? "어떤 쉼이었나요? (낮잠, 멍때림, 음악 등)" : "짧은 메모 (선택)",
+    style: { ...textareaStyle, marginTop: 0, background: "#ffffffcc", overflow: "hidden" }
   }), type === "activity" && /*#__PURE__*/React.createElement("label", {
     style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 10, color: INK, fontWeight: 600 }
   }, /*#__PURE__*/React.createElement("input", {
@@ -1893,7 +1929,13 @@ function QuickLogForm({
         key: t, style: { display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: INK, fontWeight: 600 }
       }, /*#__PURE__*/React.createElement("input", {
         type: "checkbox", checked: exTypes.has(t), onChange: () => toggleExType(t)
-      }), t)))), type === "bathroom" && /*#__PURE__*/React.createElement("div", null,
+      }), t))),
+    /*#__PURE__*/React.createElement("textarea", {
+      value: exerciseNote, onChange: e => setExerciseNote(e.target.value),
+      onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
+      rows: 2, placeholder: "운동 메모 (선택)",
+      style: { ...textareaStyle, marginTop: 8, background: "#ffffffcc", overflow: "hidden" }
+    })), type === "bathroom" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     style: { marginBottom: 10 }
   }, /*#__PURE__*/React.createElement("input", {
@@ -1924,13 +1966,10 @@ function QuickLogForm({
   }, f))), /*#__PURE__*/React.createElement("textarea", {
     value: memo,
     onChange: e => setMemo(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
     placeholder: "메모 (선택)",
     rows: 2,
-    style: {
-      ...textareaStyle,
-      marginTop: 0,
-      background: "#ffffffcc"
-    }
+    style: { ...textareaStyle, marginTop: 0, background: "#ffffffcc", overflow: "hidden" }
   })), type === "emotion" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 10
@@ -1980,13 +2019,10 @@ function QuickLogForm({
   }), /*#__PURE__*/React.createElement("textarea", {
     value: memo,
     onChange: e => setMemo(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
     placeholder: "메모 (선택)",
     rows: 2,
-    style: {
-      ...textareaStyle,
-      marginTop: 0,
-      background: "#ffffffcc"
-    }
+    style: { ...textareaStyle, marginTop: 0, background: "#ffffffcc", overflow: "hidden" }
   })), /*#__PURE__*/React.createElement("button", {
     onClick: submit,
     style: {
@@ -2129,7 +2165,7 @@ function EventRow({
       const hydIcon = hydDef?.icon;
       const hydComp = hydDef?.comp;
       const hydLabel = hydDef?.label;
-      const extra = ev.type === "meal" ? `${ev.endTime && ev.endTime !== ev.time ? ` ~${ev.endTime}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.mealWith ? ` · 👥 ${ev.mealWith}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}${ev.snack ? " · 🍬 간식" : ""}${ev.dessert ? " · 🍰 디저트" : ""}${ev.digestion ? ` · 소화 ${ev.digestion}` : ""}` :ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 🧘 결가부좌" : ""}${ev.mantra ? " · 🔔 진언/만트라" : ""}${ev.nap ? " · 😴 수면" : ""}${ev.zoneOut ? " · 🌀 멍때리기" : ""}${ev.exTypes?.length ? ` · ${ev.exTypes.join(", ")}` : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
+      const extra = ev.type === "meal" ? `${ev.endTime && ev.endTime !== ev.time ? ` ~${ev.endTime}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.mealWith ? ` · 👥 ${ev.mealWith}` : ""}${ev.feel ? ` · ${ev.feel}` : ""}${ev.snack ? " · 🍬 간식" : ""}${ev.dessert ? " · 🍰 디저트" : ""}${ev.digestion ? ` · 소화 ${ev.digestion}` : ""}${ev.location === "기타" && ev.locationNote ? ` · 기타(${ev.locationNote})` : ev.location && ev.location !== "기타" ? ` · ${ev.location}` : ""}${ev.memo ? ` · ${ev.memo}` : ""}` :ev.type === "hydration" ? `${hydLabel ? ` ${hydLabel}` : ""}${ev.label ? ` · ${ev.label}` : ""}${ev.amountMl ? ` · ${ev.amountMl}ml` : ""}${ev.cups ? ` · ${ev.cups}잔` : ""}${ev.memo ? ` · ${ev.memo}` : ""}` : isTimed ? ` ~${ev.endTime} · ${fmtHM(ev.duration)}${ev.lotus ? " · 🧘 결가부좌" : ""}${ev.mantra ? " · 🔔 진언/만트라" : ""}${ev.nap ? " · 😴 수면" : ""}${ev.zoneOut ? " · 🌀 멍때리기" : ""}${ev.exTypes?.length ? ` · ${ev.exTypes.join(", ")}` : ""}${ev.memo ? ` · ${ev.memo}` : ""}${ev.type === "exercise" && ev.exerciseNote ? ` · ${ev.exerciseNote}` : ""}` : ev.type === "bathroom" ? ` · ${ev.feel || ""}${ev.memo ? ` · ${ev.memo}` : ""}` : "";
       content = /*#__PURE__*/React.createElement(React.Fragment, null, ev.type === "hydration" && hydComp ? /*#__PURE__*/React.createElement(hydComp) : ev.type === "hydration" && hydIcon ? /*#__PURE__*/React.createElement("span", { style: { fontSize: 13 } }, hydIcon) : /*#__PURE__*/React.createElement(Icon, {
         size: 13,
         color: def.color,
@@ -2198,6 +2234,8 @@ function EventEditForm({
   const [location, setLocation] = useState(ev.location || null);
   const [eatSpeed, setEatSpeed] = useState(ev.eatSpeed || null);
   const [digestion, setDigestion] = useState(ev.digestion || null);
+  const [locationNote, setLocationNote] = useState(ev.locationNote || "");
+  const [exerciseNote, setExerciseNote] = useState(ev.exerciseNote || "");
   const [coldShower, setColdShower] = useState(ev.coldShower || false);
   const [exTypes, setExTypes] = useState(new Set(ev.exTypes || []));
   const toggleExType = t => setExTypes(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
@@ -2217,6 +2255,7 @@ function EventEditForm({
       ...(ev.type === "rest" && { nap, zoneOut }),
       ...(ev.type === "meditation" && { mantra }),
       ...(ev.type === "exercise" && { exTypes: [...exTypes] }),
+      ...(ev.type === "exercise" && exerciseNote.trim() && { exerciseNote: exerciseNote.trim() }),
       ...(ev.type === "activity" && { coldShower }),
     });else if (ev.type === "meal") onSave({
       time,
@@ -2233,12 +2272,15 @@ function EventEditForm({
       eatSpeed,
       ...(emotional && { emotional: true }),
       ...(digestion && { digestion }),
+      ...(memo.trim() && { memo: memo.trim() }),
+      ...(location === "기타" && locationNote.trim() && { locationNote: locationNote.trim() }),
     });else if (ev.type === "hydration") onSave({
       time,
       hydType,
       label,
       amountMl: (hydType === "water" || hydType === "tea") ? (Number(amountMl) || 0) : 0,
-      cups: hydType === "health" ? (Number(cups) || 1) : undefined
+      cups: hydType === "health" ? (Number(cups) || 1) : undefined,
+      ...(memo.trim() && { memo: memo.trim() })
     });else if (ev.type === "emotion") onSave({
       time,
       name: emotion === "기타" ? (customName.trim() || "기타") : emotion,
@@ -2336,13 +2378,17 @@ function EventEditForm({
     }
   }, p))), /*#__PURE__*/React.createElement("div", null,
     /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6, marginTop: 8 } }, "어디서 먹었나요?"),
-    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 8 } },
-      [["🏠","집밥"],["🍴","외식"],["🛵","배달"],["🏢","회사"]].map(([ic,lo]) =>
+    /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 4 } },
+      [["🏠","집밥"],["🍴","외식"],["🛵","배달"],["🌐","기타"]].map(([ic,lo]) =>
         /*#__PURE__*/React.createElement("button", { key: lo, onClick: () => setLocation(location===lo?null:lo),
           style: { flex: 1, padding: "6px 0", border: `2px solid ${location===lo?INK:"transparent"}`, borderRadius: 2, background: location===lo?"#ffffffcc":"transparent", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }
         }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 14 } }, ic), /*#__PURE__*/React.createElement("span", { style: { fontSize: 9, fontWeight: 700, color: INK } }, lo))
       )
     ),
+    location === "기타" && /*#__PURE__*/React.createElement("input", {
+      type: "text", value: locationNote, onChange: e => setLocationNote(e.target.value),
+      placeholder: "어디서? (회사, 편의점, 병원 등)", style: { ...inputStyle, width: "100%", boxSizing: "border-box", marginBottom: 4 }
+    }),
     /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: "#5B5580", fontWeight: 700, marginBottom: 6 } }, "식사 속도"),
     /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 10 } },
       [["🐢","천천히"],["🚶","보통"],["🏃","빨리"]].map(([ic,sp]) =>
@@ -2369,7 +2415,13 @@ function EventEditForm({
         )
       ),
       /*#__PURE__*/React.createElement("div", { style: { fontSize: 9, color: "#a090b8" } }, "식후에 알게 되면 나중에 수정해도 돼요")
-    )
+    ),
+    /*#__PURE__*/React.createElement("textarea", {
+      value: memo, onChange: e => setMemo(e.target.value),
+      onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
+      rows: 2, placeholder: "메모 (선택)",
+      style: { ...textareaStyle, marginTop: 8, background: "#ffffffcc", overflow: "hidden" }
+    })
   )), ev.type === "hydration" && /*#__PURE__*/React.createElement("div", null,
   /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 6, marginBottom: 8 }
@@ -2394,7 +2446,7 @@ function EventEditForm({
     style: { display: "flex", gap: 6, alignItems: "center" }
   }, /*#__PURE__*/React.createElement("input", {
     type: "text", value: label, onChange: e => setLabel(e.target.value),
-    placeholder: hydType === "water" ? "메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "milk" ? "종류 (두유, 귀리 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : hydType === "alcohol" ? "종류 (맥주, 와인 등)" : "재료 (선택)",
+    placeholder: hydType === "water" ? "이름/메모 (선택)" : hydType === "tea" ? "종류 (보이차, 허브 등)" : hydType === "coffee" ? "종류 (아메리카노, 라떼 등)" : hydType === "milk" ? "종류 (두유, 귀리 등)" : hydType === "commercial" ? "이름 (이온음료, 주스 등)" : hydType === "alcohol" ? "종류 (맥주, 와인 등)" : "재료 (선택)",
     style: { ...inputStyle, flex: 2, minWidth: 0 }
   }), (hydType === "water" || hydType === "tea") && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }
@@ -2407,7 +2459,13 @@ function EventEditForm({
   }, /*#__PURE__*/React.createElement("input", {
     type: "number", value: cups, onChange: e => setCups(e.target.value),
     min: "1", style: { ...inputStyle, width: 58 }
-  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, color: "#5B5580", fontWeight: 700 } }, "잔"))))), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, color: "#5B5580", fontWeight: 700 } }, "잔")))),
+  /*#__PURE__*/React.createElement("textarea", {
+    value: memo, onChange: e => setMemo(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
+    rows: 2, placeholder: "메모 (선택)",
+    style: { ...textareaStyle, marginTop: 6, background: "#ffffffcc", overflow: "hidden" }
+  })), isTimed && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -2438,16 +2496,17 @@ function EventEditForm({
       fontWeight: 700,
       flexShrink: 0
     }
-  }, fmtHM(computedDuration))), /*#__PURE__*/React.createElement("textarea", {
+  }, fmtHM(computedDuration))), ev.type === "exercise" ? /*#__PURE__*/React.createElement("input", {
+    type: "text", value: memo, onChange: e => setMemo(e.target.value),
+    placeholder: "무엇을 했는지 (예: 걷기, 스트레칭)",
+    style: { ...inputStyle, width: "100%", boxSizing: "border-box", marginTop: 0 }
+  }) : /*#__PURE__*/React.createElement("textarea", {
     value: memo,
     onChange: e => setMemo(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
     rows: 2,
     placeholder: "메모",
-    style: {
-      ...textareaStyle,
-      marginTop: 0,
-      background: "#ffffffcc"
-    }
+    style: { ...textareaStyle, marginTop: 0, background: "#ffffffcc", overflow: "hidden" }
   }), ev.type === "meditation" && /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 16, marginTop: 10 }
   }, /*#__PURE__*/React.createElement("label", {
@@ -2479,7 +2538,13 @@ function EventEditForm({
     style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: INK, fontWeight: 600 }
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox", checked: exTypes.has(t), onChange: () => toggleExType(t)
-  }), t)))), ev.type === "activity" && /*#__PURE__*/React.createElement("label", {
+  }), t))),
+  /*#__PURE__*/React.createElement("textarea", {
+    value: exerciseNote, onChange: e => setExerciseNote(e.target.value),
+    onInput: e => { e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; },
+    rows: 2, placeholder: "운동 메모 (선택)",
+    style: { ...textareaStyle, marginTop: 8, background: "#ffffffcc", overflow: "hidden" }
+  })), ev.type === "activity" && /*#__PURE__*/React.createElement("label", {
     style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 10, color: INK, fontWeight: 600 }
   }, /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: coldShower, onChange: e => setColdShower(e.target.checked) }), "🚿 찬물샤워"), ev.type === "bathroom" && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3630,7 +3695,7 @@ function StatsView({ goals }) {
     realMeals.filter(e=>e.feel).forEach(e=>{if(e.feel in fc)fc[e.feel]++;});
     const slots={아침:0,점심:0,저녁:0,야식:0,간식:0};
     meals.forEach(e=>{ const s=e.mealSlot||(e.snack?"간식":autoMealSlot(e.time||"12:00")); if(s in slots)slots[s]++; });
-    const locs={집밥:0,외식:0,배달:0,회사:0};
+    const locs={집밥:0,외식:0,배달:0,기타:0};
     meals.forEach(e=>{ if(e.location && e.location in locs) locs[e.location]++; });
     const speeds={천천히:0,보통:0,빨리:0};
     meals.forEach(e=>{ if(e.eatSpeed && e.eatSpeed in speeds) speeds[e.eatSpeed]++; });
@@ -3660,8 +3725,11 @@ function StatsView({ goals }) {
       mealN:realMeals.length,
       period:entry.morning?.period?1:0,
       morningRoutine:entry.morning?.morningRoutine?1:0,
+      morningStretch:entry.morning?.stretch?1:0,
+      morningSaltGargle:entry.morning?.saltGargle?1:0,
       coldShower:actEvs.some(e=>e.coldShower)?1:0,
       eveningRoutine:entry.evening?.eveningRoutine?1:0,
+      eveningStretch:entry.evening?.stretch?1:0,
       score: sc.total ?? null,
     };
   }
@@ -3708,14 +3776,17 @@ function StatsView({ goals }) {
       snack:S(d=>d.snackN), mealN:S(d=>d.mealN), emotionalN:S(d=>d.emotionalN),
       fc:["클린","보통","정크","폭식"].reduce((a,f)=>{a[f]=S(d=>d.fc[f]);return a;},{}),
       slots:["아침","점심","저녁","야식","간식"].reduce((a,s)=>{a[s]=S(d=>d.slots[s]);return a;},{}),
-      locs:["집밥","외식","배달","회사"].reduce((a,l)=>{a[l]=S(d=>d.locs[l]);return a;},{}),
+      locs:["집밥","외식","배달","기타"].reduce((a,l)=>{a[l]=S(d=>d.locs[l]??0);return a;},{}),
       speeds:["천천히","보통","빨리"].reduce((a,sp)=>{a[sp]=S(d=>d.speeds[sp]);return a;},{}),
       dgMap:["잘 됨","보통","더부룩","체함"].reduce((a,k)=>{a[k]=S(d=>d.dgMap?.[k]??0);return a;},{}),
       dgN:S(d=>d.dgN??0),
       period:S(d=>d.period),
       morningRoutine:S(d=>d.morningRoutine),
+      morningStretch:S(d=>d.morningStretch??0),
+      morningSaltGargle:S(d=>d.morningSaltGargle??0),
       coldShower:S(d=>d.coldShower),
       eveningRoutine:S(d=>d.eveningRoutine),
+      eveningStretch:S(d=>d.eveningStretch??0),
     };
   }, [stats]);
   // Section colors [main, sub]
@@ -3849,13 +3920,33 @@ function StatsView({ goals }) {
         ),
         /*#__PURE__*/React.createElement("tbody",null,
           ...SR("routine",
-            ()=>Row("📵 아침 디톡스",L(SC.routine[0]),
-              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.morningRoutine?G("✓"):Dim)),
-              tot?S2(`${tot.morningRoutine}일 달성`,`목표 7일`,tot.morningRoutine>=7?G("✓ 완벽"):tot.morningRoutine>0?`${tot.morningRoutine}/7`:""):""
+            ()=>Row("☀️ 아침 루틴",L(SC.routine[0]),
+              d7.map((s,i)=>{const n=s?[s.morningRoutine,s.morningStretch,s.morningSaltGargle].filter(Boolean).length:0;return /*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},n===3?G("✓"):n>0?/*#__PURE__*/React.createElement("span",{style:{color:"#888",fontWeight:700}},`${n}/3`):Dim);}),
+              tot?S2(`아침디톡스 ${tot.morningRoutine}일 · 스트레칭 ${tot.morningStretch}일 · 소금가글 ${tot.morningSaltGargle}일`,"목표 7일 완주",""):""
             ),
-            ()=>Row("📵 저녁 디톡스",L(SC.routine[0]),
+            ()=>Row("└ 📵 아침 디톡스",SL(SC.routine[1]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.morningRoutine?G("✓"):Dim)),
+              tot?`${tot.morningRoutine}일`:""
+            ),
+            ()=>Row("└ 🤸 스트레칭",SL(SC.routine[1]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.morningStretch?G("✓"):Dim)),
+              tot?`${tot.morningStretch}일`:""
+            ),
+            ()=>Row("└ 🧂 소금가글",SL(SC.routine[1]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.morningSaltGargle?G("✓"):Dim)),
+              tot?`${tot.morningSaltGargle}일`:""
+            ),
+            ()=>Row("🌙 저녁 루틴",L(SC.routine[0]),
+              d7.map((s,i)=>{const n=s?[s.eveningRoutine,s.eveningStretch].filter(Boolean).length:0;return /*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},n===2?G("✓"):n>0?/*#__PURE__*/React.createElement("span",{style:{color:"#888",fontWeight:700}},`${n}/2`):Dim);}),
+              tot?S2(`저녁디톡스 ${tot.eveningRoutine}일 · 스트레칭 ${tot.eveningStretch}일`,"목표 7일 완주",""):""
+            ),
+            ()=>Row("└ 📵 저녁 디톡스",SL(SC.routine[1]),
               d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.eveningRoutine?G("✓"):Dim)),
-              tot?S2(`${tot.eveningRoutine}일 달성`,`목표 7일`,tot.eveningRoutine>=7?G("✓ 완벽"):tot.eveningRoutine>0?`${tot.eveningRoutine}/7`:""):""
+              tot?`${tot.eveningRoutine}일`:""
+            ),
+            ()=>Row("└ 🤸 스트레칭",SL(SC.routine[1]),
+              d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.eveningStretch?G("✓"):Dim)),
+              tot?`${tot.eveningStretch}일`:""
             ),
             ()=>Row("🚿 찬물샤워",L(SC.routine[0]),
               d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("routine")},s?.coldShower?G("✓"):Dim)),
@@ -3948,6 +4039,7 @@ function StatsView({ goals }) {
             ()=>Row("└ 🏠 집밥",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.locs["집밥"]>0?G(s.locs["집밥"]+"회"):Dim)),tot?`총 ${tot.locs["집밥"]}회`:""),
             ()=>Row("└ 🛵 배달",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.locs["배달"]>0?R(s.locs["배달"]+"회"):Dim)),tot?(tot.locs["배달"]>0?R(`총 ${tot.locs["배달"]}회`):`총 0회`):""),
             ()=>Row("└ 🍴 외식",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.locs["외식"]>0?s.locs["외식"]+"회":Dim)),tot?`총 ${tot.locs["외식"]}회`:""),
+            ()=>Row("└ 🌐 기타",SL(SC.meal[1]),d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:{...dc("meal"),fontSize:10}},s?.locs["기타"]>0?s.locs["기타"]+"회":Dim)),tot?`총 ${tot.locs["기타"]??0}회`:""),
             ()=>Row("🫃 소화",L(SC.meal[0]),
               d7.map((s,i)=>/*#__PURE__*/React.createElement("td",{key:i,style:dc("meal")},
                 s?.dgN>0 ? (()=>{
