@@ -664,7 +664,7 @@ async function loadMonthlySummary(year, month, goals) {
   for (const date of monthDates) {
     const [entry, prev] = await Promise.all([loadEntry(date), loadEntry(addDays(date, -1))]);
     if (!entry) continue;
-    const score = computeDayScore(entry, prev, goals || DEFAULT_GOALS);
+    const score = computeDayScore(entry, prev, entry.goals || goals || DEFAULT_GOALS);
     if (score) summary[date] = { total: score.total, level: Math.min(4, Math.round(score.total / 100 * 4)) };
   }
   await window.storage.set(sKey, JSON.stringify(summary)).catch(() => {});
@@ -1372,7 +1372,8 @@ function CheckinCard({
 /* ---------- Goal settings ---------- */
 function GoalSettings({
   goals,
-  onSave
+  onSave,
+  onSaveTodayOnly
 }) {
   goals = {
     ...DEFAULT_GOALS,
@@ -1478,26 +1479,41 @@ function GoalSettings({
     value: healthDrink,
     onChange: e => setHealthDrink(Number(e.target.value)),
     style: { ...inputStyle, width: "100%" }
-  }))), /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      onSave({
-        ...goals,
-        exerciseGoalMin: parseHM(exHM),
-        meditationGoalMin: parseHM(medHM),
-        restGoalHours: parseHM(restHM) / 60,
-        fastingGoalHours: parseHM(fastHM) / 60,
-        hydrationGoalL: water,
-        healthDrinkGoal: healthDrink,
-        sleepGoalMinH: parseHM(sleepMinHM) / 60,
-        sleepGoalMaxH: parseHM(sleepMaxHM) / 60
-      });
-      setOpen(false);
-    },
-    style: {
-      ...primaryBtn,
-      marginTop: 0
-    }
-  }, "저장")));
+  }))), /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 6 } },
+    onSaveTodayOnly && /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        onSaveTodayOnly({
+          ...goals,
+          exerciseGoalMin: parseHM(exHM),
+          meditationGoalMin: parseHM(medHM),
+          restGoalHours: parseHM(restHM) / 60,
+          fastingGoalHours: parseHM(fastHM) / 60,
+          hydrationGoalL: water,
+          healthDrinkGoal: healthDrink,
+          sleepGoalMinH: parseHM(sleepMinHM) / 60,
+          sleepGoalMaxH: parseHM(sleepMaxHM) / 60
+        });
+        setOpen(false);
+      },
+      style: { ...primaryBtn, marginTop: 0, flex: 1, background: "#5B5580", fontSize: 10 }
+    }, "오늘만 적용"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: () => {
+        onSave({
+          ...goals,
+          exerciseGoalMin: parseHM(exHM),
+          meditationGoalMin: parseHM(medHM),
+          restGoalHours: parseHM(restHM) / 60,
+          fastingGoalHours: parseHM(fastHM) / 60,
+          hydrationGoalL: water,
+          healthDrinkGoal: healthDrink,
+          sleepGoalMinH: parseHM(sleepMinHM) / 60,
+          sleepGoalMaxH: parseHM(sleepMaxHM) / 60
+        });
+        setOpen(false);
+      },
+      style: { ...primaryBtn, marginTop: 0, flex: 1, fontSize: 10 }
+    }, "기본값 저장")));
 }
 
 /* ---------- Quick log ---------- */
@@ -1505,6 +1521,7 @@ function QuickLogRow({
   onAdd,
   goals,
   onSaveGoals,
+  onSaveTodayGoals,
   fastingHint
 }) {
   const [open, setOpen] = useState(null);
@@ -1519,7 +1536,8 @@ function QuickLogRow({
     emoji: "⚡️"
   }, "오늘의 기록"), /*#__PURE__*/React.createElement(GoalSettings, {
     goals: goals,
-    onSave: onSaveGoals
+    onSave: onSaveGoals,
+    onSaveTodayOnly: onSaveTodayGoals
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
@@ -2837,7 +2855,8 @@ function TodayView({
   entry,
   setEntry,
   goals,
-  onSaveGoals
+  onSaveGoals,
+  onSaveTodayGoals
 }) {
   const [prevEntry, setPrevEntry] = useState(null);
   const [saveError, setSaveError] = useState(false);
@@ -2934,7 +2953,7 @@ function TodayView({
     };
     await persist(updated);
   };
-  const score = computeDayScore(entry, prevEntry, goals);
+  const score = computeDayScore(entry, prevEntry, entry.goals || goals);
   const isFBEvent = e => e.type === "meal" || (e.type === "hydration" && (e.hydType === "coffee" || e.hydType === "milk" || e.hydType === "commercial" || e.hydType === "health" || e.hydType === "alcohol"));
   const prevFBSorted = prevEntry ? prevEntry.events.filter(isFBEvent).map(e => e.time).sort() : [];
   const prevLastMealTime = prevFBSorted.length ? prevFBSorted[prevFBSorted.length - 1] : null;
@@ -3130,8 +3149,9 @@ function TodayView({
     showPeriod: true
   }), /*#__PURE__*/React.createElement(QuickLogRow, {
     onAdd: addEvent,
-    goals: goals,
+    goals: entry.goals || goals,
     onSaveGoals: onSaveGoals,
+    onSaveTodayGoals: onSaveTodayGoals,
     fastingHint: {
       isFirstMealToday,
       prevLastMealTime
@@ -3399,7 +3419,7 @@ function FlowView({
     const s = summary[date];
     const lv = s ? s.level : null;
     const loaded = loadedEntries[date];
-    const score = loaded?.entry ? computeDayScore(loaded.entry, loaded.prev, goals) : null;
+    const score = loaded?.entry ? computeDayScore(loaded.entry, loaded.prev, loaded.entry.goals || goals) : null;
     const fastOn = score && score.fastHours != null;
     const sleepOn = score && score.sleepHours != null;
     const waterOn = score && score.hydrationMl > 0;
@@ -3681,7 +3701,7 @@ function StatsView({ goals }) {
   const wkLabel = (() => { const s=new Date(ws+"T00:00:00"),e=new Date(days[6]+"T00:00:00"); return `${s.getMonth()+1}월 ${s.getDate()}일 ~ ${e.getMonth()+1}월 ${e.getDate()}일`; })();
   function buildDayStats(entry, prevEntry, goals) {
     if (!entry) return null;
-    const sc = computeDayScore(entry, prevEntry, goals) || {};
+    const sc = computeDayScore(entry, prevEntry, entry.goals || goals) || {};
     const ev = entry.events || [];
     const hy = ev.filter(e=>e.type==="hydration");
     const wMl = hy.filter(e=>e.hydType==="water").reduce((a,e)=>a+(Number(e.amountMl)||0),0);
@@ -4114,7 +4134,7 @@ function ArchiveView() {
       const rows = allDates.map(d => {
         const entry = entryMap[d];
         const prevEntry = entryMap[addDays(d, -1)] || null;
-        const score = computeDayScore(entry, prevEntry, goals);
+        const score = computeDayScore(entry, prevEntry, entry.goals || goals);
         const emotionList = (score?.emotions || []).map(e => `${e.time} ${e.name}`).join(", ");
         return {
           "날짜": d,
@@ -4732,6 +4752,11 @@ function App() {
     setGoals(g);
     await saveGoals(g);
   };
+  const onSaveTodayGoals = async g => {
+    const updated = { ...entry, goals: g };
+    setEntry(updated);
+    await saveEntry(updated);
+  };
   const isToday = date === todayStr();
   const goPrevDay = () => setDate(d => addDays(d, -1));
   const goNextDay = () => {
@@ -4863,7 +4888,8 @@ function App() {
     entry: entry,
     setEntry: setEntry,
     goals: goals,
-    onSaveGoals: onSaveGoals
+    onSaveGoals: onSaveGoals,
+    onSaveTodayGoals: onSaveTodayGoals
   }) : tab === "flow" ? /*#__PURE__*/React.createElement(FlowView, {
     goals: goals
   }) : tab === "stats" ? /*#__PURE__*/React.createElement(StatsView, {
